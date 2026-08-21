@@ -2,7 +2,11 @@ name: 上游词库同步与重建
 
 # 定时检测上游(datou1996/openrouter-chinese)词库更新:
 #   有更新 → 覆盖 sources/ 快照 → 递增版本号重新构建 → 自动提交推送
-#   无更新 / 上游不可用(删除、断网、改名)→ 记录状态后正常结束,工作流保持绿色
+#   无更新 → 直接结束
+#   上游不可用(删除、断网、改名)→ 仅提交状态记录(upstream.state.json),跳过重建,工作流保持绿色
+# 重建只由 check-upstream.mjs 的退出码 10(快照内容有实质更新)触发;
+# git diff 只用于判断"是否有文件需要提交",不作为是否重建的依据——
+# 否则首次进入 unavailable 时 state.json 的状态变化也会触发一次无意义的重建提交。
 # 上游快照完整保存在本仓库 sources/ 目录,上游消失不影响本项目继续构建与发布。
 
 on:
@@ -28,9 +32,13 @@ jobs:
           node-version: 20
 
       - name: 检查上游更新
-        run: node scripts/check-upstream.mjs
+        id: check
+        run: |
+          code=0
+          node scripts/check-upstream.mjs || code=$?
+          echo "exitcode=$code" >> "$GITHUB_OUTPUT"
 
-      - name: 判断是否有变更
+      - name: 判断是否有文件变更
         id: diff
         run: |
           if git diff --quiet -- sources/ upstream.state.json; then
@@ -40,7 +48,7 @@ jobs:
           fi
 
       - name: 重新构建并校验
-        if: steps.diff.outputs.changed == 'true'
+        if: steps.check.outputs.exitcode == '10'
         run: |
           node build.mjs
           node --check openrouter-chinese-plus.user.js
@@ -53,5 +61,10 @@ jobs:
           git add -A
           DICT_VER="$(node -p "JSON.parse(require('fs').readFileSync('upstream.state.json','utf8')).sources.datou1996.versions.dict")"
           BUILD_NO="$(node -p "JSON.parse(require('fs').readFileSync('upstream.state.json','utf8')).buildNumber")"
-          git commit -m "chore: 同步上游词库 v${DICT_VER} 并重新构建 (build ${BUILD_NO})"
+          if [ "${{ steps.check.outputs.exitcode }}" = "10" ]; then
+            MSG="chore: 同步上游词库 v${DICT_VER} 并重新构建 (build ${BUILD_NO})"
+          else
+            MSG="chore: 记录上游状态变化(快照未变,跳过重建)"
+          fi
+          git commit -m "$MSG"
           git push
