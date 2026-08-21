@@ -1,0 +1,15 @@
+{
+  "$comment": "上游来源配置。sources 按顺序尝试;每个条目内 mirrors 是候选仓库列表,第一个可用的生效。原仓库消失时,把可用的 fork 加进 mirrors 即可,无需改代码。",
+  "sources": [
+    {
+      "name": "datou1996",
+      "repo": "datou1996/openrouter-chinese",
+      "mirrors": [],
+      "branch": "main",
+      "files": [
+        { "local": "sources/datou-locals.js", "remote": "locals.js" },
+        { "local": "sources/datou-main.user.js", "remote": "main.user.js" }
+      ]
+    }
+  ]
+}

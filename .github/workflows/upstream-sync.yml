@@ -1,0 +1,57 @@
+name: 上游词库同步与重建
+
+# 定时检测上游(datou1996/openrouter-chinese)词库更新:
+#   有更新 → 覆盖 sources/ 快照 → 递增版本号重新构建 → 自动提交推送
+#   无更新 / 上游不可用(删除、断网、改名)→ 记录状态后正常结束,工作流保持绿色
+# 上游快照完整保存在本仓库 sources/ 目录,上游消失不影响本项目继续构建与发布。
+
+on:
+  schedule:
+    - cron: "0 */6 * * *" # 每 6 小时检查一次
+  workflow_dispatch: # 支持手动触发
+
+permissions:
+  contents: write
+
+concurrency:
+  group: upstream-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: 检查上游更新
+        run: node scripts/check-upstream.mjs
+
+      - name: 判断是否有变更
+        id: diff
+        run: |
+          if git diff --quiet -- sources/ upstream.state.json; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: 重新构建并校验
+        if: steps.diff.outputs.changed == 'true'
+        run: |
+          node build.mjs
+          node --check openrouter-chinese-plus.user.js
+
+      - name: 提交并推送
+        if: steps.diff.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          DICT_VER="$(node -p "JSON.parse(require('fs').readFileSync('upstream.state.json','utf8')).sources.datou1996.versions.dict")"
+          BUILD_NO="$(node -p "JSON.parse(require('fs').readFileSync('upstream.state.json','utf8')).buildNumber")"
+          git commit -m "chore: 同步上游词库 v${DICT_VER} 并重新构建 (build ${BUILD_NO})"
+          git push

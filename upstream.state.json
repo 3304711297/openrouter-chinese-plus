@@ -1,0 +1,21 @@
+{
+  "buildNumber": 2,
+  "ourBase": "1.0",
+  "sources": {
+    "datou1996": {
+      "status": "unchanged",
+      "repoUsed": "datou1996/openrouter-chinese",
+      "checkedAt": "2026-08-21T10:22:19.718Z",
+      "lastChangedAt": "2026-08-21T10:22:18.815Z",
+      "hashes": {
+        "sources/datou-locals.js": "e4e64bbf87353ea8c8e879485530bdcea8a475542d0c579fc77b78722b39db95",
+        "sources/datou-main.user.js": "8378e17a108ee09390ec6ff17b454520a30afd5c490307888946fa8f86e94be8"
+      },
+      "versions": {
+        "dict": "1.5.22",
+        "engine": "1.5.22"
+      },
+      "lastError": null
+    }
+  }
+}
