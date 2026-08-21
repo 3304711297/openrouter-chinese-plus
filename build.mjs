@@ -8,7 +8,9 @@
  *   4. cny-price.module.js 人民币价格模块(原创)
  *
  * 版本号规则:`<ourBase>.<buildNumber>`
- *   - ourBase:我们自己的功能版本,人工改动功能后手动递增(见下方常量)
+ *   - ourBase:我们自己的功能版本,人工改动功能后手动递增
+ *     (唯一权威来源是下方 OUR_BASE 常量;upstream.state.json 不再记录,
+ *      避免出现 state 与构建脚本各存一份、日久漂移的双源问题)
  *   - buildNumber:upstream.state.json 中的构建号,上游词库每次实际更新时由
  *     scripts/check-upstream.mjs 自动 +1,保证脚本管理器能识别到新版本
  */
