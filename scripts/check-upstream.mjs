@@ -104,7 +104,8 @@ async function fetchSource(source) {
 async function main() {
     const state = loadState();
     state.sources = state.sources || {};
-    let anyChanged = false;
+    let anyChanged = false;   // 上游内容有实质更新(需要重新构建)
+    let stateDirty = false;   // 状态文件需要落盘(内容有实质变化才写,避免时间戳churn)
 
     for (const source of config.sources) {
         const prev = state.sources[source.name] || {};
@@ -113,12 +114,17 @@ async function main() {
 
         if (!result.ok) {
             // 上游全部候选仓库不可用:保留本地快照原样,仅记录状态
-            state.sources[source.name] = {
+            const entry = {
                 ...prev,
                 status: 'unavailable',
                 checkedAt: now,
                 lastError: result.error ? String(result.error.message || result.error) : 'unknown',
             };
+            // 与上次状态完全一致则不落盘(上游长期消失时避免每次调度都产生提交)
+            if (JSON.stringify(entry) !== JSON.stringify(prev)) {
+                state.sources[source.name] = entry;
+                stateDirty = true;
+            }
             console.warn(
                 `[upstream] ⚠ 上游 "${source.name}" 全部候选仓库均不可用,` +
                 `继续使用本地快照(构建不受影响)。上次已知版本: ${prev.versions?.dict || '未知'}`
@@ -139,7 +145,7 @@ async function main() {
             prev.hashes && Object.entries(hashes).every(([k, v]) => prev.hashes[k] === v);
 
         if (unchanged) {
-            state.sources[source.name] = { ...prev, status: 'unchanged', repoUsed: result.repoUsed, checkedAt: now, hashes, versions, lastError: null };
+            // 无更新:不落盘(时间戳等易变字段不写入),工作流不会因此产生空提交
             console.log(`[upstream] "${source.name}" 无更新 (词库 v${versions.dict})`);
         } else {
             // 写入新快照并递增构建号,驱动产物版本号上涨以触发用户端自动更新
@@ -158,11 +164,12 @@ async function main() {
                 lastError: null,
             };
             anyChanged = true;
+            stateDirty = true;
             console.log(`[upstream] ✓ "${source.name}" 检测到更新: 词库 v${prev.versions?.dict || '?'} → v${versions.dict},buildNumber → ${state.buildNumber}`);
         }
     }
 
-    saveState(state);
+    if (stateDirty) saveState(state);
     process.exitCode = anyChanged ? 10 : 0;
 }
 
