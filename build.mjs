@@ -24,7 +24,7 @@ const read = (name) => readFileSync(join(root, name), 'utf8');
 /* ====== 发布配置 ====== */
 const REPO_OWNER = '3304711297';
 const REPO_NAME = 'openrouter-chinese-plus';
-const OUR_BASE = '1.0'; // 我们自己的功能版本号,有功能性改动时手动递增
+const OUR_BASE = '1.1'; // 我们自己的功能版本号,有功能性改动时手动递增(本次:SPA 路由清理 + 标记精确移除)
 
 const state = JSON.parse(readFileSync(join(root, 'upstream.state.json'), 'utf8'));
 const BUILD_NUMBER = state.buildNumber || 1;
@@ -72,7 +72,8 @@ const HEADER = `// ==UserScript==
  *    LynnGuo666/OpenRouter_Chinese (PolyForm Noncommercial 1.0.0,未复制其任何代码)
  *    https://github.com/LynnGuo666/OpenRouter_Chinese
  *    保留官方美元价,追加 ≈¥ 参考价;汇率 Yahoo Finance 优先、Frankfurter 兜底,
- *    缓存 30 分钟,最长回退 72 小时;支持手动汇率;/chat 与 /fusion 不启用。
+ *    缓存 30 分钟,最长回退 72 小时;支持手动汇率;/chat 与 /fusion 不启用,
+ *    SPA 路由进入后自动清除已显示的参考价标记。
  *
  * 3. isdoge/openrouter-chinese (MIT) —— 经评估未并入:
  *    其页面覆盖为 datou 版子集,且无独有功能,近一个月无更新。

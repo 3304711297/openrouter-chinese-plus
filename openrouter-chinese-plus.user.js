@@ -2,7 +2,7 @@
 // @name         OpenRouter 中文化增强版
 // @namespace    openrouter-chinese-plus
 // @description  中文化 OpenRouter 全站界面,并为模型价格追加人民币参考价。翻译引擎与词库基于 datou1996/openrouter-chinese (MIT);人民币价格为原创实现,设计思路参考 LynnGuo666/OpenRouter_Chinese
-// @version      1.0.2
+// @version      1.1.2
 // @author       openrouter-chinese-plus
 // @license      MIT
 // @icon         https://openrouter.ai/favicon.ico
@@ -37,7 +37,8 @@
  *    LynnGuo666/OpenRouter_Chinese (PolyForm Noncommercial 1.0.0,未复制其任何代码)
  *    https://github.com/LynnGuo666/OpenRouter_Chinese
  *    保留官方美元价,追加 ≈¥ 参考价;汇率 Yahoo Finance 优先、Frankfurter 兜底,
- *    缓存 30 分钟,最长回退 72 小时;支持手动汇率;/chat 与 /fusion 不启用。
+ *    缓存 30 分钟,最长回退 72 小时;支持手动汇率;/chat 与 /fusion 不启用,
+ *    SPA 路由进入后自动清除已显示的参考价标记。
  *
  * 3. isdoge/openrouter-chinese (MIT) —— 经评估未并入:
  *    其页面覆盖为 datou 版子集,且无独有功能,近一个月无更新。
@@ -4521,8 +4522,9 @@ const I18N = {
  * 人民币价格增强(原创实现)
  *
  * 设计思路参考 LynnGuo666/OpenRouter_Chinese,代码为全新编写:
- *   1. 保留官方美元价原文,在价格文本节点后追加独立的 "≈¥xx" 参考价文本节点
- *      —— 不改写原节点数据,避免与上方翻译引擎的词典/正则处理互相干扰
+ *   1. 保留官方美元价原文,在价格文本节点后追加带 data-openrouter-cny 标记的
+ *      "≈¥xx" 参考价 span 节点——不改写原节点数据,避免与上方翻译引擎的词典/正则
+ *      处理互相干扰;SPA 路由进入 /chat、/fusion 时自动清除本模块全部标记
  *   2. 汇率来源:Yahoo Finance 优先,失败回退 Frankfurter,再回退本地缓存或手动值
  *   3. 行情缓存 30 分钟;请求失败时可继续使用最多 72 小时内的旧汇率
  *   4. 纯本地换算,不发送任何页面数据;/chat 与 /fusion 用户内容区不启用
@@ -4537,6 +4539,9 @@ const I18N = {
     const RESCAN_INTERVAL_MS = 6000;           // 周期重扫,与主引擎节奏一致
     const SCAN_DEBOUNCE_MS = 400;
     const MARK = '≈¥';
+    // 本模块生成节点的唯一标识:清理时只删带此属性的节点,
+    // 绝不按"长得像 ≈¥数字"全页匹配,避免误删页面原生同形文本
+    const MARK_ATTR = 'data-openrouter-cny';
 
     // 不启用价格增强的页面(对话与生成结果属于用户内容区)
     const DISABLED_PATH_PREFIXES = ['/chat', '/fusion'];
@@ -4556,6 +4561,7 @@ const I18N = {
         rateSource: '默认',
         menuIds: {},
         scanTimer: null,
+        rescanInterval: null,
         observer: null,
     };
 
@@ -4674,10 +4680,28 @@ const I18N = {
 
     /* ---------- DOM 扫描与标注 ---------- */
 
+    /* ---------- 标记节点(带 data-openrouter-cny 的 span)---------- */
+
+    function isElementMark(el) {
+        return !!(el && el.nodeType === 1
+            && typeof el.hasAttribute === 'function'
+            && el.hasAttribute(MARK_ATTR));
+    }
+
     function isMarked(node) {
-        return node.nextSibling
-            && node.nextSibling.nodeType === Node.TEXT_NODE
-            && /^\s?≈¥[\d.,]+$/.test(String(node.nextSibling.data));
+        return isElementMark(node.nextSibling);
+    }
+
+    function createMark(label) {
+        const span = document.createElement('span');
+        span.setAttribute(MARK_ATTR, '');
+        span.textContent = ' ' + label;
+        return span;
+    }
+
+    function refreshMark(markEl, label) {
+        const want = ' ' + label;
+        if (markEl.textContent !== want) markEl.textContent = want;
     }
 
     function annotateNode(node) {
@@ -4706,14 +4730,12 @@ const I18N = {
                 const label = formatCny(numUsd);
                 if (!label) return;
 
-                const last = parent.lastChild;
-                if (last && last.nodeType === Node.TEXT_NODE && /^\s?≈¥[\d.,]+$/.test(last.data)) {
+                if (isElementMark(parent.lastChild)) {
                     // 已标注:价格数字被 React 更新时同步刷新参考价
-                    const want = ' ' + label;
-                    if (last.data !== want) last.data = want;
+                    refreshMark(parent.lastChild, label);
                     return;
                 }
-                parent.appendChild(document.createTextNode(' ' + label));
+                parent.appendChild(createMark(label));
             }
         }
     }
@@ -4728,12 +4750,10 @@ const I18N = {
 
         if (isMarked(hostNode)) {
             // 已标注:价格数字被 React 更新时同步刷新参考价
-            const want = ' ' + label;
-            if (hostNode.nextSibling.data !== want) hostNode.nextSibling.data = want;
+            refreshMark(hostNode.nextSibling, label);
             return;
         }
-        const tail = document.createTextNode(' ' + label);
-        hostNode.parentNode.insertBefore(tail, hostNode.nextSibling);
+        hostNode.parentNode.insertBefore(createMark(label), hostNode.nextSibling);
     }
 
     function priceEnabledHere() {
@@ -4752,7 +4772,16 @@ const I18N = {
     }
 
     function rescanAll() {
-        try { scanRoot(document.body); } catch (e) { /* 忽略单次扫描异常 */ }
+        try {
+            // SPA 路由切换进入 /chat、/fusion 时,旧页面残留的参考价标记不会
+            // 随组件卸载必然消失(共享侧栏等持久 DOM),必须主动清除;
+            // 路由切回启用页后,下一次扫描自然恢复标注
+            if (!priceEnabledHere()) {
+                removeAllMarks();
+                return;
+            }
+            scanRoot(document.body);
+        } catch (e) { /* 忽略单次扫描异常 */ }
     }
 
     function scheduleScan() {
@@ -4765,13 +4794,8 @@ const I18N = {
 
     function removeAllMarks() {
         if (!document.body) return;
-        const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null);
-        const targets = [];
-        let n;
-        while ((n = walker.nextNode())) {
-            if (/^\s?≈¥[\d.,]+$/.test(n.data)) targets.push(n);
-        }
-        targets.forEach((t) => t.remove());
+        // 只移除本模块生成的标记节点,页面原生文本一律不动
+        document.querySelectorAll('[' + MARK_ATTR + ']').forEach((el) => el.remove());
     }
 
     /* ---------- 菜单命令 ---------- */
@@ -4839,7 +4863,7 @@ const I18N = {
             // characterData 必须监听:React 会事后修正价格数字(如四舍五入),
             // 否则已追加的参考价会与更新后的美元价不一致,最长滞后一个重扫周期
             state.observer.observe(document.body, { childList: true, subtree: true, characterData: true });
-            setInterval(rescanAll, RESCAN_INTERVAL_MS);
+            state.rescanInterval = setInterval(rescanAll, RESCAN_INTERVAL_MS);
         };
 
         if (document.readyState === 'loading') {
@@ -4868,6 +4892,7 @@ const I18N = {
     if (typeof module !== 'undefined' && module.exports) {
         module.exports = {
             state,
+            MARK_ATTR,
             parseUsd,
             formatCny,
             applyRate,
@@ -4875,6 +4900,8 @@ const I18N = {
             saveRateCache,
             isMarked,
             priceEnabledHere,
+            removeAllMarks,
+            rescanAll,
         };
     }
 })(
