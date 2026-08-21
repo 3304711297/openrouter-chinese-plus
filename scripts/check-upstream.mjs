@@ -31,7 +31,7 @@ function loadState() {
     try {
         return JSON.parse(readFileSync(STATE_PATH, 'utf8'));
     } catch (e) {
-        return { buildNumber: 1, ourBase: '1.0', sources: {} };
+        return { buildNumber: 1, sources: {} };
     }
 }
 
