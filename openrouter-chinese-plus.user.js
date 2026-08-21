@@ -4851,9 +4851,34 @@ const I18N = {
         console.info('[OpenRouter 中文化增强版] 价格模块 v' + CNY_VERSION + ' / 汇率(' + state.rateSource + '):' + state.rate);
     }
 
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initCny, { once: true });
-    } else {
-        initCny();
+    /* ---------- 测试导出(Node 单元测试专用)---------- */
+    // 仅在 CommonJS 环境(Node)下导出内部函数供单元测试;
+    // 浏览器/userscript 环境没有 module,此分支永远不生效。
+    // Node 下 document 为 undefined,下方自动启动逻辑整体跳过,
+    // 不会创建 MutationObserver/setInterval,也不会发起汇率请求。
+
+    if (typeof document !== 'undefined' && document) {
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initCny, { once: true });
+        } else {
+            initCny();
+        }
     }
-})(window, document, undefined);
+
+    if (typeof module !== 'undefined' && module.exports) {
+        module.exports = {
+            state,
+            parseUsd,
+            formatCny,
+            applyRate,
+            loadCachedRate,
+            saveRateCache,
+            isMarked,
+            priceEnabledHere,
+        };
+    }
+})(
+    typeof window !== 'undefined' ? window : globalThis,
+    typeof document !== 'undefined' ? document : undefined,
+    undefined
+);

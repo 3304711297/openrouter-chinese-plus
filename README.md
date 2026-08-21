@@ -105,6 +105,7 @@ https://raw.githubusercontent.com/3304711297/openrouter-chinese-plus/main/openro
 node scripts/check-upstream.mjs   # 检查上游更新(有更新时更新快照并递增构建号,退出码 10)
 node build.mjs                    # 由 sources/ 与 cny-price.module.js 组装生成单文件产物
 node --check openrouter-chinese-plus.user.js   # 语法校验
+node --test tests/cny-price.test.cjs   # 人民币价格模块单元测试(零依赖,node:test)
 node serve-test.mjs               # 本地 CORS 测试服务(端口 8931,供浏览器注入实测用)
 ```
 
@@ -113,11 +114,13 @@ node serve-test.mjs               # 本地 CORS 测试服务(端口 8931,供浏�
 ```
 openrouter-chinese/
 ├── openrouter-chinese-plus.user.js   # 最终安装产物(构建生成,勿手改)
-├── cny-price.module.js               # 人民币价格模块(原创)
-├── build.mjs                         # 组装脚本(版本号 = 功能版本.构建号)
+├── cny-price.module.js               # 人民币价格模块(原创;Node 下导出内部函数供测试)
+├── build.mjs                         # 组装脚本(版本号 = OUR_BASE 常量.构建号,OUR_BASE 是功能版本唯一权威来源)
 ├── upstream.config.json              # 上游来源与镜像配置
 ├── upstream.state.json               # 同步状态(哈希/版本号/构建号,自动维护)
 ├── scripts/check-upstream.mjs        # 上游检查与同步
+├── tests/cny-price.test.cjs          # 人民币模块单元测试(node --test)
+├── .github/workflows/ci.yml          # push/PR:构建 + 语法校验 + 产物一致性 + 单元测试
 ├── .github/workflows/upstream-sync.yml  # 每 6 小时定时同步
 ├── serve-test.mjs                    # 本地测试服务
 ├── sources/                          # 上游脚本快照(vendored,构建的唯一依赖)

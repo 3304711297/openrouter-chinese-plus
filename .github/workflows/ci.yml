@@ -1,0 +1,38 @@
+name: CI
+
+# push / PR 时验证:构建可复现、语法正确、已提交产物与源一致、模块单元测试通过。
+# 与 upstream-sync(定时)互补:上游同步只管词库更新,这里管人改的代码不把仓库改坏。
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: 构建产物并校验语法
+        run: |
+          node build.mjs
+          node --check openrouter-chinese-plus.user.js
+
+      # 防止手改 sources/ 或模块后忘记重新构建就提交,
+      # 导致线上产物与仓库源不一致
+      - name: 校验已提交产物与源一致
+        run: git diff --exit-code -- openrouter-chinese-plus.user.js
+
+      - name: 单元测试
+        run: node --test tests/cny-price.test.cjs
