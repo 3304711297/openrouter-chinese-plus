@@ -33,6 +33,10 @@ https://raw.githubusercontent.com/3304711297/openrouter-chinese-plus/main/openro
 脚本管理器会弹出安装确认。安装后脚本管理器会定期检查同一地址获取新版本(`@downloadURL`/`@updateURL` 已指向该链接),有更新时自动升级。
 
 > 国内直连 `raw.githubusercontent.com` 通常不通,与三个上游脚本相同,需要代理环境。
+>
+> **Edge + ScriptCat 用户注意**:若点击安装链接后提示"已阻止 … ERR_BLOCKED_BY_CLIENT",请到
+> `edge://extensions` → ScriptCat → 详情页,打开「**允许访问文件 URL**」开关后重试。
+> 这是 Edge 的安全限制——扩展弹出 `.user.js` 安装页属于文件式导航,需要该权限才不会被拦截。
 
 ### 方式二:本地文件安装
 
