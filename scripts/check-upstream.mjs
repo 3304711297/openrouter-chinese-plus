@@ -10,14 +10,16 @@
  * 设计原则:本仓库的 sources/ 是完整的 vendored 快照,上游消失只影响"能否跟进新词库",
  * 不影响本项目继续构建、发布和维护。工作流因此永远不会因上游挂掉而变红。
  *
- * 退出码:0 = 无需处理(无更新或上游不可用);10 = 快照已更新,需要重新构建。
+ * 退出码:0 = 无需处理(无更新或上游不可用);10 = 快照已更新,需要重新构建;
+ *       20 = 本仓库自身状态异常(如 upstream.state.json 缺失/损坏)——绝不能静默,
+ *       否则重算会从默认 buildNumber 起步、产物版本号倒退,脚本管理器将不再提示更新。
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const execFileAsync = promisify(execFile);
 
@@ -27,12 +29,63 @@ const STATE_PATH = join(projectRoot, 'upstream.state.json');
 
 const config = JSON.parse(readFileSync(CONFIG_PATH, 'utf8'));
 
-function loadState() {
-    try {
-        return JSON.parse(readFileSync(STATE_PATH, 'utf8'));
-    } catch (e) {
-        return { buildNumber: 1, sources: {} };
+const EXIT_OK = 0;
+const EXIT_UPDATED = 10;
+const EXIT_UNEXPECTED = 20;
+
+/** 标记"本仓库自身状态异常"的错误:必须让工作流变红,不允许当作网络问题静默放过 */
+class UnexpectedError extends Error {
+    constructor(message) {
+        super(message);
+        this.name = 'UnexpectedError';
+        this.unexpected = true;
     }
+}
+
+/**
+ * 校验状态文件内容(纯函数,供单元测试)。
+ * buildNumber 是产物版本号的基准,缺失/非法时宁可选择失败也绝不静默回退到默认值——
+ * 一旦从默认值重算,哪怕上游内容没变,版本号也会从 1.2.2 倒退成 x.1,
+ * 脚本管理器会把降版视为"已是最新",用户从此收不到更新。
+ * @returns {{ok: true, state: object} | {ok: false, reason: string}}
+ */
+function parseStateText(raw) {
+    let state;
+    try {
+        state = JSON.parse(raw);
+    } catch (e) {
+        return { ok: false, reason: `JSON 解析失败: ${e.message}` };
+    }
+    if (!state || typeof state !== 'object' || Array.isArray(state)) {
+        return { ok: false, reason: '顶层必须是对象' };
+    }
+    if (!Number.isInteger(state.buildNumber) || state.buildNumber < 1) {
+        return { ok: false, reason: `buildNumber 非法(${JSON.stringify(state.buildNumber)}),必须是 >=1 的整数` };
+    }
+    if (typeof state.sources !== 'object' || state.sources === null || Array.isArray(state.sources)) {
+        return { ok: false, reason: 'sources 缺失或类型非法' };
+    }
+    return { ok: true, state };
+}
+
+function loadState() {
+    let raw;
+    try {
+        raw = readFileSync(STATE_PATH, 'utf8');
+    } catch (e) {
+        throw new UnexpectedError(
+            `无法读取状态文件 upstream.state.json(${e.message})。` +
+            '该文件随仓库提交,缺失说明仓库被改动;拒绝以默认 buildNumber 重建以免版本号倒退,请先恢复该文件。'
+        );
+    }
+    const parsed = parseStateText(raw);
+    if (!parsed.ok) {
+        throw new UnexpectedError(
+            `状态文件 upstream.state.json 已损坏(${parsed.reason})。` +
+            '拒绝自动重建以免版本号倒退,请从 git 历史恢复该文件。'
+        );
+    }
+    return parsed.state;
 }
 
 function saveState(state) {
@@ -49,7 +102,13 @@ async function fetchText(url) {
     // 优先直接请求(CI 环境直连);失败后回退 curl —— curl 自动遵循
     // http_proxy/https_proxy 环境变量,兼容本地开发环境代理上网的场景
     try {
-        const res = await fetch(url, { redirect: 'follow', headers: { 'user-agent': UA } });
+        // AbortSignal.timeout:Node fetch 默认无请求超时,最坏情况可挂数分钟;
+        // 与 curl 回退的 --max-time 30 对齐
+        const res = await fetch(url, {
+            redirect: 'follow',
+            headers: { 'user-agent': UA },
+            signal: AbortSignal.timeout(30000),
+        });
         if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
         return res.text();
     } catch (directError) {
@@ -170,11 +229,26 @@ async function main() {
     }
 
     if (stateDirty) saveState(state);
-    process.exitCode = anyChanged ? 10 : 0;
+    process.exitCode = anyChanged ? EXIT_UPDATED : EXIT_OK;
 }
 
-main().catch((e) => {
-    // 网络异常等意外错误同样不视为失败:保持快照不动,由下次调度重试
-    console.error('[upstream] 检查过程发生异常(不影响现有构建):', e);
-    process.exit(0);
-});
+/**
+ * 仅在直接执行本脚本时运行 main(node scripts/check-upstream.mjs)。
+ * 被测试文件 import 时绝不触发网络请求——此前 main() 在模块顶层无条件执行,
+ * 任何针对本文件的单元测试都会变成一次真实的上游拉取。
+ */
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+    main().catch((e) => {
+        if (e && e.unexpected) {
+            // 本仓库自身状态异常(状态文件缺失/损坏等):以非 0/10 退出码失败,
+            // 工作流据此变红报警——这类问题静默放过会导致版本号倒退或词库停更无人察觉
+            console.error('[upstream] ✗ 本仓库状态异常,需要人工介入:', e.message);
+            process.exit(EXIT_UNEXPECTED);
+        }
+        // 网络异常等环境性错误:保持快照不动,由下次调度重试,不视为失败
+        console.error('[upstream] 检查过程发生网络异常(不影响现有构建):', e);
+        process.exit(EXIT_OK);
+    });
+}
+
+export { extractDictVersion, extractEngineVersion, sha256, parseStateText, UnexpectedError };

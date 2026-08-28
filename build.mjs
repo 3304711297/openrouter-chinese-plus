@@ -24,7 +24,7 @@ const read = (name) => readFileSync(join(root, name), 'utf8');
 /* ====== 发布配置 ====== */
 const REPO_OWNER = '3304711297';
 const REPO_NAME = 'openrouter-chinese-plus';
-const OUR_BASE = '1.1'; // 我们自己的功能版本号,有功能性改动时手动递增(本次:SPA 路由清理 + 标记精确移除)
+const OUR_BASE = '1.2'; // 我们自己的功能版本号,有功能性改动时手动递增(本次:孤儿标记回收防双份 ≈¥)
 
 const state = JSON.parse(readFileSync(join(root, 'upstream.state.json'), 'utf8'));
 const BUILD_NUMBER = state.buildNumber || 1;

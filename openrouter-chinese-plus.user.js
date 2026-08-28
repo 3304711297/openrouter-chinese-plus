@@ -2,7 +2,7 @@
 // @name         OpenRouter 中文化增强版
 // @namespace    openrouter-chinese-plus
 // @description  中文化 OpenRouter 全站界面,并为模型价格追加人民币参考价。翻译引擎与词库基于 datou1996/openrouter-chinese (MIT);人民币价格为原创实现,设计思路参考 LynnGuo666/OpenRouter_Chinese
-// @version      1.1.2
+// @version      1.2.2
 // @author       openrouter-chinese-plus
 // @license      MIT
 // @icon         https://openrouter.ai/favicon.ico
@@ -4780,6 +4780,7 @@ const I18N = {
                 removeAllMarks();
                 return;
             }
+            pruneOrphanMarks();
             scanRoot(document.body);
         } catch (e) { /* 忽略单次扫描异常 */ }
     }
@@ -4796,6 +4797,23 @@ const I18N = {
         if (!document.body) return;
         // 只移除本模块生成的标记节点,页面原生文本一律不动
         document.querySelectorAll('[' + MARK_ATTR + ']').forEach((el) => el.remove());
+    }
+
+    /**
+     * 回收孤儿标记:React 重渲染可能直接移除/替换作为锚点的价格文本节点,
+     * 但它不知道标记 span 的存在,删除后标记残留,同页随后会再标一次,
+     * 出现双份 ≈¥ 直到路由切换才被清除。每次扫描前校验每个标记的前驱兄弟
+     * 仍是价格文本(情形一的完整 "$x" 节点,或情形二的独立金额节点),
+     * 已失锚的标记移除,扫描随后会在正确位置重新标注。
+     */
+    function pruneOrphanMarks() {
+        document.querySelectorAll('[' + MARK_ATTR + ']').forEach((el) => {
+            const prev = el.previousSibling;
+            const anchored = !!(prev && prev.nodeType === Node.TEXT_NODE
+                && typeof prev.data === 'string' && prev.data.length <= 300
+                && (parseUsd(prev.data) !== null || /^\s?[\d,]+(?:\.\d+)?/.test(prev.data)));
+            if (!anchored) el.remove();
+        });
     }
 
     /* ---------- 菜单命令 ---------- */
@@ -4901,6 +4919,7 @@ const I18N = {
             isMarked,
             priceEnabledHere,
             removeAllMarks,
+            pruneOrphanMarks,
             rescanAll,
         };
     }

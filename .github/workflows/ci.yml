@@ -35,4 +35,4 @@ jobs:
         run: git diff --exit-code -- openrouter-chinese-plus.user.js
 
       - name: 单元测试
-        run: node --test tests/cny-price.test.cjs
+        run: node --test tests/cny-price.test.cjs tests/check-upstream.test.mjs

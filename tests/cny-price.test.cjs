@@ -354,3 +354,96 @@ describe('SPA 路由与标记生命周期(最小伪 DOM)', () => {
         assert.strictEqual(codeEl._children.length, 1);
     });
 });
+
+describe('pruneOrphanMarks(孤儿标记回收)', () => {
+    /** 每个用例独立伪 DOM + 独立模块实例 */
+    function setup() {
+        const dom = makeFakeDom();
+        const mod = freshLoad({ dom });
+        mod.applyRate(7.2, '测试');
+        return { dom, mod };
+    }
+
+    test('React 删除价格节点后,失锚标记在下次扫描被回收', () => {
+        const { dom, mod } = setup();
+        const p = dom.document.createElement('p');
+        const priceText = dom.document.createTextNode('$0.15');
+        p.appendChild(priceText);
+        dom.body.appendChild(p);
+        mod.rescanAll();
+        assert.strictEqual(p._children.length, 2); // [$0.15, mark]
+
+        // React 直接移除作为锚点的价格文本节点(它不知道标记的存在)
+        priceText.remove();
+        mod.rescanAll();
+        assert.strictEqual(p._children.length, 0);
+        assert.strictEqual(dom.document.querySelectorAll(`[${mod.MARK_ATTR}]`).length, 0);
+    });
+
+    test('React 把价格换成非价格文本,旧标记回收且不会重复出现双份 ≈¥', () => {
+        const { dom, mod } = setup();
+        const p = dom.document.createElement('p');
+        const priceText = dom.document.createTextNode('$0.15');
+        p.appendChild(priceText);
+        dom.body.appendChild(p);
+        mod.rescanAll();
+
+        // React 原地替换:旧价格节点删掉,新节点(非价格)插到标记之前
+        const replacement = dom.document.createTextNode('N/A');
+        p.insertBefore(replacement, p._children[1]);
+        priceText.remove();
+        mod.rescanAll();
+        assert.strictEqual(dom.document.querySelectorAll(`[${mod.MARK_ATTR}]`).length, 0);
+    });
+
+    test('React 换成新价格文本:锚点仍然有效,标记保留并刷新为新参考价', () => {
+        const { dom, mod } = setup();
+        const p = dom.document.createElement('p');
+        const priceText = dom.document.createTextNode('$0.15');
+        p.appendChild(priceText);
+        dom.body.appendChild(p);
+        mod.rescanAll();
+
+        const newText = dom.document.createTextNode('$0.30');
+        p.insertBefore(newText, p._children[1]);
+        priceText.remove();
+        mod.rescanAll();
+        assert.strictEqual(p._children.length, 2);
+        assert.strictEqual(p._children[1].textContent, ' ≈¥2.16');
+    });
+
+    test('情形二:金额兄弟节点被 React 换成非金额文本,父元素末尾标记回收', () => {
+        const { dom, mod } = setup();
+        const p = dom.document.createElement('p');
+        p.appendChild(dom.document.createTextNode('$'));
+        const numNode = dom.document.createTextNode('0.044');
+        p.appendChild(numNode);
+        dom.body.appendChild(p);
+        mod.rescanAll();
+        assert.strictEqual(p._children.length, 3); // [$, 0.044, mark]
+
+        const replacement = dom.document.createTextNode('N/A');
+        p.insertBefore(replacement, p._children[2]);
+        numNode.remove();
+        mod.rescanAll();
+        assert.strictEqual(p._children.length, 2); // [$, N/A],孤儿标记已回收
+        assert.strictEqual(dom.document.querySelectorAll(`[${mod.MARK_ATTR}]`).length, 0);
+    });
+
+    test('情形二:金额兄弟节点换成新金额,标记保留并刷新', () => {
+        const { dom, mod } = setup();
+        const p = dom.document.createElement('p');
+        p.appendChild(dom.document.createTextNode('$'));
+        const numNode = dom.document.createTextNode('0.044');
+        p.appendChild(numNode);
+        dom.body.appendChild(p);
+        mod.rescanAll();
+
+        const replacement = dom.document.createTextNode('0.05');
+        p.insertBefore(replacement, p._children[2]);
+        numNode.remove();
+        mod.rescanAll();
+        assert.strictEqual(p._children.length, 3);
+        assert.strictEqual(p._children[2].textContent, ' ≈¥0.36');
+    });
+});
