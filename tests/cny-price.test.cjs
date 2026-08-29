@@ -355,6 +355,80 @@ describe('SPA 路由与标记生命周期(最小伪 DOM)', () => {
     });
 });
 
+describe('双价文本与孤儿标记链(pruneOrphanMarks 回收)', () => {
+    /** 每个用例独立伪 DOM + 独立模块实例 */
+    function setup() {
+        const dom = makeFakeDom();
+        const mod = freshLoad({ dom });
+        mod.applyRate(7.2, '测试');
+        return { dom, mod };
+    }
+
+    test('同一文本节点含两个美元价时逐个标注', () => {
+        const { dom, mod } = setup();
+        const p = dom.document.createElement('p');
+        p.appendChild(dom.document.createTextNode('$3 /M input · $15 /M output'));
+        dom.body.appendChild(p);
+        mod.rescanAll();
+        assert.strictEqual(p._children.length, 3); // 价格文本 + 两个标记
+        assert.strictEqual(p._children[1].textContent, ' ≈¥21.60');
+        assert.strictEqual(p._children[2].textContent, ' ≈¥108.0');
+    });
+
+    test('价格数量变少时多余标记被移除', () => {
+        const { dom, mod } = setup();
+        const p = dom.document.createElement('p');
+        const priceText = p.appendChild(dom.document.createTextNode('$3 /M input · $15 /M output'));
+        dom.body.appendChild(p);
+        mod.rescanAll();
+        assert.strictEqual(p._children.length, 3);
+
+        priceText.data = '$3 /M input';
+        mod.rescanAll();
+        assert.strictEqual(p._children.length, 2);
+        assert.strictEqual(p._children[1].textContent, ' ≈¥21.60');
+    });
+
+    test('多标记链的锚点(价格文本)被 React 移除后整条链回收', () => {
+        const { dom, mod } = setup();
+        const p = dom.document.createElement('p');
+        const priceText = p.appendChild(dom.document.createTextNode('$3 · $15'));
+        dom.body.appendChild(p);
+        mod.rescanAll();
+        assert.strictEqual(p._children.length, 3);
+
+        priceText.remove();
+        mod.rescanAll();
+        assert.strictEqual(p._children.length, 0);
+    });
+
+    test('多标记链中间节点不因前驱是标记而误删', () => {
+        const { dom, mod } = setup();
+        const p = dom.document.createElement('p');
+        p.appendChild(dom.document.createTextNode('$3 · $15'));
+        dom.body.appendChild(p);
+        mod.rescanAll();
+        // 第二个标记的前驱是第一个标记(链内节点),必须保留
+        mod.rescanAll();
+        assert.strictEqual(p._children.length, 3);
+        assert.strictEqual(p._children[2].textContent, ' ≈¥108.0');
+    });
+});
+
+describe('手动汇率存量值防护', () => {
+    test('存储的手动汇率是非数字时回退默认值而不是 NaN', () => {
+        const mod = freshLoad({ gm: { cny_manual_rate: 'not-a-number', cny_rate_mode: 'manual' } });
+        assert.strictEqual(mod.state.manualRate, 7.2);
+        // 无效手动值不应卡死在 NaN 汇率上:applyRate 拒绝 NaN,initRate 回退自动
+        assert.strictEqual(mod.state.rate > 0, true);
+    });
+
+    test('存储的手动汇率超范围时回退默认值', () => {
+        const mod = freshLoad({ gm: { cny_manual_rate: 500, cny_rate_mode: 'manual' } });
+        assert.strictEqual(mod.state.manualRate, 7.2);
+    });
+});
+
 describe('pruneOrphanMarks(孤儿标记回收)', () => {
     /** 每个用例独立伪 DOM + 独立模块实例 */
     function setup() {

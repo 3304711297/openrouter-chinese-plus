@@ -34,11 +34,17 @@
     // 匹配美元金额:$3、$0.15、$1,250、from $3 等。
     // 单位后缀(/M、/K、tokens 等)不参与匹配——无论按什么计价单位,数字本身都是美元金额
     const USD_PRICE_RE = /\$\s?([\d,]+(?:\.\d+)?)/;
+    // 全局版:同一文本节点可能含多个价格("$3 /M input · $15 /M output"),逐个标注
+    const USD_PRICE_RE_GLOBAL = /\$\s?([\d,]+(?:\.\d+)?)/g;
 
+    const storedManualRate = Number(GM_getValue('cny_manual_rate', DEFAULT_RATE));
     const state = {
         enabled: GM_getValue('cny_enabled', true),
         rateMode: GM_getValue('cny_rate_mode', 'auto'), // 'auto' | 'manual'
-        manualRate: Number(GM_getValue('cny_manual_rate', DEFAULT_RATE)),
+        // 存量存储值可能是历史 bug 写入的非数字:非法时回退默认值,
+        // 否则 manualRate=NaN 会让手动汇率静默失效,用户以为设了汇率实际一直用默认值
+        manualRate: Number.isFinite(storedManualRate) && storedManualRate > 0 && storedManualRate < 100
+            ? storedManualRate : DEFAULT_RATE,
         rate: DEFAULT_RATE,
         rateSource: '默认',
         menuIds: {},
@@ -70,8 +76,8 @@
 
     function initRate() {
         if (state.rateMode === 'manual') {
-            applyRate(state.manualRate, '手动');
-            return;
+            // 手动值非法时静默回退自动流程,而不是卡在无效手动汇率
+            if (applyRate(state.manualRate, '手动')) return;
         }
         const cache = loadCachedRate();
         if (cache) {
@@ -191,11 +197,10 @@
         if (!text || text.length > 300) return;
         if (node.parentElement && node.parentElement.closest(SKIP_SELECTOR)) return;
 
-        // 情形一:$ 与金额在同一文本节点
+        // 情形一:$ 与金额在同一文本节点(可能含多个价格,如 "$3 /M input · $15 /M output")
         if (text.indexOf('$') !== -1) {
-            const usd = parseUsd(text);
-            if (usd !== null) {
-                annotateWithUsd(node, usd);
+            if (/\$\s?[\d,]/.test(text)) {
+                annotateWithUsdAll(node);
                 return;
             }
             // 情形二:React 渲染把价格拆成多个文本节点,"$" 单独成节点,
@@ -223,19 +228,37 @@
     }
 
     /**
-     * 在 hostNode 之后追加(或同步更新)人民币参考价文本节点
+     * 在 hostNode 之后维护人民币参考价标记串:文本节点含几个美元价就保持几个
+     * 连续标记(React 更新数字时逐个刷新;价格数量变少时移除多余标记)
      */
-    function annotateWithUsd(hostNode, usd) {
-        if (!Number.isFinite(usd) || usd <= 0) return;
-        const label = formatCny(usd);
-        if (!label) return;
-
-        if (isMarked(hostNode)) {
-            // 已标注:价格数字被 React 更新时同步刷新参考价
-            refreshMark(hostNode.nextSibling, label);
-            return;
+    function annotateWithUsdAll(hostNode) {
+        const matches = [];
+        let m;
+        USD_PRICE_RE_GLOBAL.lastIndex = 0;
+        while ((m = USD_PRICE_RE_GLOBAL.exec(hostNode.data)) !== null) {
+            const usd = Number(m[1].replace(/,/g, ''));
+            if (Number.isFinite(usd) && usd > 0) matches.push(usd);
         }
-        hostNode.parentNode.insertBefore(createMark(label), hostNode.nextSibling);
+        if (matches.length === 0) return;
+
+        // 收集紧随 hostNode 的连续标记(可能是一次标注多个价格的结果)
+        const marks = [];
+        let node = hostNode.nextSibling;
+        while (isElementMark(node)) { marks.push(node); node = node.nextSibling; }
+
+        for (let i = 0; i < matches.length; i++) {
+            const label = formatCny(matches[i]);
+            if (!label) break;
+            if (i < marks.length) {
+                refreshMark(marks[i], label);
+            } else {
+                const mark = createMark(label);
+                const ref = marks.length ? marks[marks.length - 1].nextSibling : hostNode.nextSibling;
+                hostNode.parentNode.insertBefore(mark, ref);
+                marks.push(mark);
+            }
+        }
+        for (let i = marks.length - 1; i >= matches.length; i--) marks[i].remove();
     }
 
     function priceEnabledHere() {
@@ -285,15 +308,20 @@
      * 回收孤儿标记:React 重渲染可能直接移除/替换作为锚点的价格文本节点,
      * 但它不知道标记 span 的存在,删除后标记残留,同页随后会再标一次,
      * 出现双份 ≈¥ 直到路由切换才被清除。每次扫描前校验每个标记的前驱兄弟
-     * 仍是价格文本(情形一的完整 "$x" 节点,或情形二的独立金额节点),
-     * 已失锚的标记移除,扫描随后会在正确位置重新标注。
+     * 仍是锚点——价格文本(情形一/二),或同一价格产生的连续标记链中的前一个
+     * 标记(多价格标注);链条头失锚被移除后,后续标记的前驱自动还原为价格
+     * 文本或同样失锚,逐次扫描自愈。失锚标记移除后,扫描会在正确位置重新标注。
      */
     function pruneOrphanMarks() {
         document.querySelectorAll('[' + MARK_ATTR + ']').forEach((el) => {
             const prev = el.previousSibling;
-            const anchored = !!(prev && prev.nodeType === Node.TEXT_NODE
-                && typeof prev.data === 'string' && prev.data.length <= 300
-                && (parseUsd(prev.data) !== null || /^\s?[\d,]+(?:\.\d+)?/.test(prev.data)));
+            let anchored = false;
+            if (prev && prev.nodeType === Node.TEXT_NODE
+                && typeof prev.data === 'string' && prev.data.length <= 300) {
+                anchored = parseUsd(prev.data) !== null || /^\s?[\d,]+(?:\.\d+)?/.test(prev.data);
+            } else if (isElementMark(prev)) {
+                anchored = true; // 多价格标记链的链内节点,由链条头决定去留
+            }
             if (!anchored) el.remove();
         });
     }

@@ -42,6 +42,7 @@ const HEADER = `// ==UserScript==
 // @license      MIT
 // @icon         https://openrouter.ai/favicon.ico
 // @match        https://openrouter.ai/*
+// @noframes     页面内嵌 iframe 不注入,避免重复菜单命令与重复标注
 // @run-at       document-start
 // @grant        GM_getValue
 // @grant        GM_setValue
