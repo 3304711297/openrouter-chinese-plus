@@ -102,6 +102,8 @@ https://cdn.jsdelivr.net/gh/3304711297/openrouter-chinese-plus@main/openrouter-c
 
 - 最坏情况(没有任何人维护 fork):本仓库的快照就是最后版本,可以自行按原词库格式继续维护 `sources/datou-locals.js`,同步机制对本地改动同样生效。
 
+> 注意:上游有实际更新时,`sources/` 快照会被**整文件覆盖**,对快照做过的一次性清理(如死重词条删除)会被上游内容回填;如需保持精简,可按同口径再次清理。
+
 ## 开发
 
 ```bash
