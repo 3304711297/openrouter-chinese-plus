@@ -7,6 +7,12 @@
 
 最终产物为单文件 [`openrouter-chinese-plus.user.js`](./openrouter-chinese-plus.user.js),适用于 **ScriptCat(脚本猫)** 与 Tampermonkey。
 
+## 安装失败?(FAQ 导航)
+
+1. **[Edge + ScriptCat 提示 ERR_BLOCKED_BY_CLIENT →](#安装被浏览器拦截err_blocked_by_client)**(维护者日常环境即 Edge + 脚本猫,这是最高频的安装失败原因)
+2. **[国内直连 raw 不通 → 用 jsDelivr 镜像安装](#安装)**(镜像无需代理)
+3. **[装好了但没检测到更新 → 看更新检测说明与 CDN 缓存说明](#安装)**
+
 ## 三个上游项目的取舍
 
 | 上游项目 | 取舍 | 理由 |
@@ -41,6 +47,12 @@ https://cdn.jsdelivr.net/gh/3304711297/openrouter-chinese-plus@main/openrouter-c
 
 更新检测说明:`@version` 递增是脚本管理器判断"是否为更新版本"的核心版本依据,实际更新检测还涉及 `@updateURL`、安装源与管理器策略。
 
+### 安装被浏览器拦截(ERR_BLOCKED_BY_CLIENT)
+
+**Edge + ScriptCat 用户注意**:若点击安装链接后提示"已阻止 … ERR_BLOCKED_BY_CLIENT",请到
+`edge://extensions` → ScriptCat → 详情页,打开「**允许访问文件 URL**」开关后重试。
+这是 Edge 的安全限制——扩展弹出 `.user.js` 安装页属于文件式导航,需要该权限才不会被拦截。
+
 ### 方式二:本地文件安装
 
 下载 [`openrouter-chinese-plus.user.js`](./openrouter-chinese-plus.user.js) 后拖入浏览器窗口,由脚本猫/Tampermonkey 接管安装;或在脚本管理器面板"创建脚本"后粘贴全部内容保存。
@@ -73,6 +85,16 @@ https://cdn.jsdelivr.net/gh/3304711297/openrouter-chinese-plus@main/openrouter-c
 - 设置手动汇率
 - 恢复自动汇率(Yahoo/Frankfurter)
 - 正则翻译(切换)/ 开发者模式 / 诊断扫描(继承自 datou 版)
+
+## 当前镜像列表
+
+上游同步源定义在 [`upstream.config.json`](./upstream.config.json):
+
+| 源 | 仓库 | mirrors 回退列表 |
+|---|---|---|
+| datou1996(主源) | `datou1996/openrouter-chinese`(main 分支) | 目前为空 `[]` |
+
+切换机制说明:同步按候选源顺序尝试,主仓库 raw 不可达时依次尝试 `mirrors` 中的 fork 仓库 raw。**上游真死了,把社区 fork 加进 `mirrors` 数组即可自动切换,不需要发版、不需要改代码**(详见下文「上游消失了怎么办?」);若没有任何人维护 fork,本仓库的 vendored 快照就是最后版本,可继续人工维护。
 
 ## 上游词库自动同步
 
