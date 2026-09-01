@@ -133,6 +133,7 @@ node scripts/check-upstream.mjs   # 检查上游更新(有更新时更新快照�
 node build.mjs                    # 由 sources/ 与 cny-price.module.js 组装生成单文件产物
 node --check openrouter-chinese-plus.user.js   # 语法校验
 node --test tests/cny-price.test.cjs   # 人民币价格模块单元测试(零依赖,node:test)
+npx playwright test tests/e2e.spec.mjs # E2E 冒烟(真实访问 openrouter.ai;本地可加 PLAYWRIGHT_CHANNEL=msedge-dev 复用已装 Edge,免下载 chromium)
 node serve-test.mjs               # 本地 CORS 测试服务(端口 8931,供浏览器注入实测用)
 ```
 

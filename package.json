@@ -1,0 +1,30 @@
+{
+  "name": "openrouter-chinese-plus",
+  "version": "0.0.0",
+  "description": "一个油猴脚本,做两件事:",
+  "main": "cny-price.module.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node --test tests/cny-price.test.cjs tests/check-upstream.test.mjs",
+    "e2e": "playwright test tests/e2e.spec.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/3304711297/openrouter-chinese-plus.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/3304711297/openrouter-chinese-plus/issues"
+  },
+  "homepage": "https://github.com/3304711297/openrouter-chinese-plus#readme",
+  "devDependencies": {
+    "@playwright/test": "^1.62.1"
+  },
+  "private": true
+}
