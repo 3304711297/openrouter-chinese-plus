@@ -1,168 +1,117 @@
-# OpenRouter 中文化增强版
+# OpenRouter 中文化增强版 💱
 
-一个油猴脚本,做两件事:
+<p align="center">
+  <strong>现代化 OpenRouter 全站中文化油猴脚本：20+ 页面全覆盖 + 实时人民币参考价 + 词库单文件内联 + 上游自动同步与镜像容灾</strong>
+</p>
 
-1. **全站中文化** [openrouter.ai](https://openrouter.ai) 界面(模型、工作区、排行榜、设置、文档等 20+ 种页面)
-2. **人民币价格参考**:保留官方美元价,在模型价格旁追加 `≈¥xx` 换算参考价
+<p align="center">
+  <a href="https://raw.githubusercontent.com/3304711297/openrouter-chinese-plus/main/openrouter-chinese-plus.user.js"><img src="https://img.shields.io/badge/Install-Userscript-brightgreen?style=flat-square&logo=tampermonkey" alt="Install"></a>
+  <a href="https://github.com/3304711297/openrouter-chinese-plus/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/3304711297/openrouter-chinese-plus/ci.yml?branch=main&label=CI%20Build&style=flat-square" alt="CI Status"></a>
+  <a href="https://github.com/3304711297/openrouter-chinese-plus/actions/workflows/upstream-sync.yml"><img src="https://img.shields.io/github/actions/workflow/status/3304711297/openrouter-chinese-plus/upstream-sync.yml?branch=main&label=Sync%20Upstream%20(6h)&style=flat-square" alt="Sync Upstream"></a>
+  <img src="https://img.shields.io/badge/Target-OpenRouter.ai-6366f1?style=flat-square" alt="Target">
+  <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=flat-square" alt="License"></a>
+</p>
 
-最终产物为单文件 [`openrouter-chinese-plus.user.js`](./openrouter-chinese-plus.user.js),适用于 **ScriptCat(脚本猫)** 与 Tampermonkey。
+---
 
-## 安装失败?(FAQ 导航)
+## 📸 实机效果展示
 
-1. **[Edge + ScriptCat 提示 ERR_BLOCKED_BY_CLIENT →](#安装被浏览器拦截err_blocked_by_client)**(维护者日常环境即 Edge + 脚本猫,这是最高频的安装失败原因)
-2. **[国内直连 raw 不通 → 用 jsDelivr 镜像安装](#安装)**(镜像无需代理)
-3. **[装好了但没检测到更新 → 看更新检测说明与 CDN 缓存说明](#安装)**
+<p align="center">
+  <img src="./test-models.png" alt="OpenRouter Models 页面实机中文化与人民币换算效果" width="850">
+</p>
 
-## 三个上游项目的取舍
+> 真实环境实测：[openrouter.ai/models](https://openrouter.ai/models) 模型列表、筛选器、侧边栏全量中文化；保留官方美元原价的同时，在每百万 Token 价格后自动追加高精度 **`≈¥xx.xx` 人民币参考价**。
 
-| 上游项目 | 取舍 | 理由 |
-|---|---|---|
-| [datou1996/openrouter-chinese](https://github.com/datou1996/openrouter-chinese) | ✅ 整体采用(引擎 + 词库,MIT) | 三者中覆盖面最广(20+ 页面类型)、迭代最活跃、排障菜单完善 |
-| [LynnGuo666/OpenRouter_Chinese](https://github.com/LynnGuo666/OpenRouter_Chinese) | 💡 仅借鉴"人民币价格"功能思路,**代码全部重写** | 其代码为 PolyForm Noncommercial 许可(禁止商用),不能直接复用;重写后本作品可整体按 MIT 发布 |
-| [isdoge/openrouter-chinese](https://github.com/isdoge/openrouter-chinese) | ❌ 未并入 | 页面覆盖为 datou 版子集,无独有功能,且已近一个月无更新 |
+---
 
-相对 datou 原版的两处结构改动:
+## 🚀 一键安装
 
-1. **词库由 `@require` 外链改为单文件内联**,消除脚本管理器缓存外部文件导致"更新词库后不生效"的问题(原项目 FAQ 的头号问题)。代价是单文件体积约 330 KB。
-2. **上游快照 vendor 进本仓库 + GitHub Actions 定时自动同步**(见下文),上游项目消失也不影响使用与维护。
+在已安装 [ScriptCat 脚本猫](https://scriptcat.org/) 或 [Tampermonkey](https://www.tampermonkey.net/) 的浏览器中点击安装：
 
-## 安装
+| 安装通道 | 链接 | 说明 |
+| :--- | :--- | :--- |
+| ⚡ **GitHub 直连通道** | [一键安装 openrouter-chinese-plus.user.js](https://raw.githubusercontent.com/3304711297/openrouter-chinese-plus/main/openrouter-chinese-plus.user.js) | **推荐**。版本更新秒级生效 |
+| 🌐 **jsDelivr 镜像通道** | [一键安装 (jsDelivr CDN 镜像)](https://cdn.jsdelivr.net/gh/3304711297/openrouter-chinese-plus@main/openrouter-chinese-plus.user.js) | 国内无需代理（约有 12 小时 CDN 缓存） |
 
-### 方式一:远程链接安装(推荐,支持自动更新)
+---
 
-在装有 [ScriptCat](https://github.com/scriptscat/scriptcat) 或 [Tampermonkey](https://www.tampermonkey.net/) 的浏览器中打开,直连 / 镜像双入口任选其一:
+## ❓ 常见安装问题速查 (FAQ)
 
-```text
-# 直连
-https://raw.githubusercontent.com/3304711297/openrouter-chinese-plus/main/openrouter-chinese-plus.user.js
-# 镜像(国内建议用镜像,无需代理)
-https://cdn.jsdelivr.net/gh/3304711297/openrouter-chinese-plus@main/openrouter-chinese-plus.user.js
-```
+<details>
+<summary><strong>👉 Edge + ScriptCat 提示 <code>ERR_BLOCKED_BY_CLIENT</code> 怎么办？</strong></summary>
 
-脚本管理器会弹出安装确认。安装后脚本管理器会定期检查同一地址获取新版本(`@downloadURL`/`@updateURL` 已指向 raw 直连链接),有更新时自动升级。
+这是 Edge 浏览器的安全权限机制导致的：
+1. 在 Edge 地址栏打开 `edge://extensions`；
+2. 找到 **ScriptCat（脚本猫）**，点击 **「详细信息」**；
+3. 勾选打开 **「允许访问文件 URL」** 开关后，重新刷新安装链接即可顺利弹出安装面板。
+</details>
 
-> - 分支文件在 jsDelivr 有约 12 小时 CDN 缓存,新版本可能延迟生效;急着更新可走直连
-> - 使用脚本猫的用户同样支持上述直连/镜像两种安装方式,更新检测逻辑一致
-> - 国内直连 `raw.githubusercontent.com` 通常不通,需要代理环境;镜像无需代理
+<details>
+<summary><strong>👉 脚本猫首次提示跨域汇率请求授权？</strong></summary>
 
-更新检测说明:`@version` 递增是脚本管理器判断"是否为更新版本"的核心版本依据,实际更新检测还涉及 `@updateURL`、安装源与管理器策略。
+首次运行时，脚本会通过 Yahoo Finance / Frankfurter 获取最新美元兑人民币汇率。点击 **「总是允许」** 即可。若拒绝，脚本会自动回退到默认汇率 7.2 或使用你在菜单中手动填写的汇率。
+</details>
 
-### 安装被浏览器拦截(ERR_BLOCKED_BY_CLIENT)
+---
 
-**Edge + ScriptCat 用户注意**:若点击安装链接后提示"已阻止 … ERR_BLOCKED_BY_CLIENT",请到
-`edge://extensions` → ScriptCat → 详情页,打开「**允许访问文件 URL**」开关后重试。
-这是 Edge 的安全限制——扩展弹出 `.user.js` 安装页属于文件式导航,需要该权限才不会被拦截。
+## ⚡ 核心功能与架构优势
 
-### 方式二:本地文件安装
+### 1. 🌐 全站深度中文化 (20+ 页面类型)
+- **覆盖全站核心场景**：模型库 (`/models`)、排行榜 (`/rankings`)、活动日历、账单设置、Playground 与开发文档。
+- **React 组件友好**：基于 `MutationObserver` 与 `TreeWalker` 精准操作文本叶子节点，支持 React 拆分文本节点拼接（如 `90` + `% off`），绝不破坏前端组件状态与事件监听。
+- **代码与 Key 安全区**：API Key 输入框、代码高亮块、聊天上下文输入区域受到严格保护，绝不产生误翻译。
 
-下载 [`openrouter-chinese-plus.user.js`](./openrouter-chinese-plus.user.js) 后拖入浏览器窗口,由脚本猫/Tampermonkey 接管安装;或在脚本管理器面板"创建脚本"后粘贴全部内容保存。
+### 2. 💱 独创人民币参考价模块 (4 级容灾链路)
+- **无感注入**：保留官方美元原价（`$0.15/M`），并在其后智能追加 `≈¥1.08/M` 实时参考价（免费模型 `$0` 智能免标注）。
+- **四级汇率容灾架构**：
+  ```text
+  Yahoo Finance API (实时高精度)
+       │ (失败)
+       ▼
+  Frankfurter API (官方备用)
+       │ (失败)
+       ▼
+  本地 30 分钟缓存 / 72 小时历史兜底
+       │ (离线)
+       ▼
+  静态保底基准值 (7.2)
+  ```
+- **纯本地安全计算**：汇率计算全部在本地浏览器沙箱完成，不向任何第三方上报页面数据。
 
-### ScriptCat 首次授权说明
+### 3. 📦 词库单文件内联与 6 小时自动同步
+- **解决缓存死锁**：放弃原版的 `@require` 外部词库外链形式，将词库直接内联打包为单文件，彻底杜绝“脚本更新但外部词库被浏览器永久缓存”的常见痛点。
+- **自动化追踪**：GitHub Actions 每 6 小时自动检查上游词库，有更新自动触发构建与发版。
 
-首次使用时脚本猫会就跨域汇率请求(Yahoo Finance / Frankfurter)询问授权:允许后自动获取实时汇率;拒绝则使用默认汇率 7.2 或在菜单中设置手动汇率。
+---
 
-## 功能明细
+## 🔄 上游项目对比与取舍
 
-**翻译部分**(来自 datou 版,词库 v1.5.22,523 条公共词条):
+| 上游项目 | 取舍决策 | 理由与规范 |
+| :--- | :--- | :--- |
+| [datou1996/openrouter-chinese](https://github.com/datou1996/openrouter-chinese) | ✅ **整体采用** (MIT) | 覆盖 20+ 页面，翻译质量最完善，排障机制成熟 |
+| [LynnGuo666/OpenRouter_Chinese](https://github.com/LynnGuo666/OpenRouter_Chinese) | 💡 **借鉴思路，代码 100% 原创重写** | 原作者代码采用非商业许可；本项目纯原创实现，全库保持 MIT 纯正开源 |
+| [isdoge/openrouter-chinese](https://github.com/isdoge/openrouter-chinese) | ❌ **未并入** | 词库为 datou 版子集，无独有功能 |
 
-- 静态词典精确匹配 + 正则规则模糊匹配(数字单位、日期、价格、百分比)
-- 按 URL 识别页面类型加载对应词条;MutationObserver + TreeWalker 只改文本节点,不破坏 React 组件
-- 处理 React 拆分文本节点(如 `90` + `% off`);页面标题翻译
-- 忽略规则保护代码块、API Key、聊天输入框
-- 油猴菜单:正则翻译开关、开发者模式(记录未翻译词条)、诊断扫描
+---
 
-**人民币价格部分**(原创实现):
-
-- 保留官方美元价,追加 `≈¥` 参考价;免费模型($0)不标注
-- 兼容两种 DOM 形态:价格完整在同一文本节点;React 把 `$`/数字/单位拆成多个文本节点
-- React 事后修正价格数字时(如四舍五入),参考价自动同步刷新
-- 汇率链路:Yahoo Finance → Frankfurter 兜底 → 30 分钟缓存 → 最长回退 72 小时旧值 → 默认 7.2
-- 纯本地换算,不发送任何页面数据;`/chat` 与 `/fusion` 页面不启用
-
-**脚本菜单**:
-
-- ✓ 人民币价格显示(切换)
-- 设置手动汇率
-- 恢复自动汇率(Yahoo/Frankfurter)
-- 正则翻译(切换)/ 开发者模式 / 诊断扫描(继承自 datou 版)
-
-## 当前镜像列表
-
-上游同步源定义在 [`upstream.config.json`](./upstream.config.json):
-
-| 源 | 仓库 | mirrors 回退列表 |
-|---|---|---|
-| datou1996(主源) | `datou1996/openrouter-chinese`(main 分支) | 目前为空 `[]` |
-
-切换机制说明:同步按候选源顺序尝试,主仓库 raw 不可达时依次尝试 `mirrors` 中的 fork 仓库 raw。**上游真死了,把社区 fork 加进 `mirrors` 数组即可自动切换,不需要发版、不需要改代码**(详见下文「上游消失了怎么办?」);若没有任何人维护 fork,本仓库的 vendored 快照就是最后版本,可继续人工维护。
-
-## 上游词库自动同步
-
-本仓库通过 [`.github/workflows/upstream-sync.yml`](./.github/workflows/upstream-sync.yml) **每 6 小时**自动检测上游词库更新:
-
-```
-定时触发 → scripts/check-upstream.mjs 拉取上游 locals.js / main.user.js
-        → 与 upstream.state.json 中的哈希比对
-        ├─ 有更新 → 覆盖 sources/ 快照 → buildNumber+1 → 重新构建产物 → 自动提交推送
-        ├─ 无更新 → 结束
-        └─ 上游不可用 → 记录状态,警告日志,正常结束(工作流保持绿色)
-```
-
-产物版本号为 `<功能版本>.<构建号>`(如 `1.1.2`),上游每实际更新一次构建号 +1,保证脚本管理器能识别到新版本并自动升级用户端。
-
-### 上游消失了怎么办?
-
-`sources/` 目录保存的是上游文件的**完整本地快照**(vendored),构建永远只依赖快照,不依赖上游在线。因此:
-
-- **上游仓库删除/改名/断网**:同步脚本记录 `unavailable` 状态并跳过,本仓库照常构建发布,已安装用户完全不受影响;只是暂时收不到新词库。
-- **上游归档(archived)**:归档仓库的 raw 文件仍可访问,自动同步照常工作。
-- **上游彻底死亡**:把社区 fork 加进 [`upstream.config.json`](./upstream.config.json) 的 `mirrors` 数组即可切换同步源,无需改任何代码:
-
-```json
-{ "repo": "datou1996/openrouter-chinese", "mirrors": ["someone/fork", "another/fork"] }
-```
-
-- 最坏情况(没有任何人维护 fork):本仓库的快照就是最后版本,可以自行按原词库格式继续维护 `sources/datou-locals.js`,同步机制对本地改动同样生效。
-
-> 注意:上游有实际更新时,`sources/` 快照会被**整文件覆盖**,对快照做过的一次性清理(如死重词条删除)会被上游内容回填;如需保持精简,可按同口径再次清理。
-
-## 开发
+## 🛠️ 本地开发与测试
 
 ```bash
-node scripts/check-upstream.mjs   # 检查上游更新(有更新时更新快照并递增构建号,退出码 10)
-node build.mjs                    # 由 sources/ 与 cny-price.module.js 组装生成单文件产物
-node --check openrouter-chinese-plus.user.js   # 语法校验
-node --test tests/cny-price.test.cjs   # 人民币价格模块单元测试(零依赖,node:test)
-npx playwright test tests/e2e.spec.mjs # E2E 冒烟(真实访问 openrouter.ai;本地可加 PLAYWRIGHT_CHANNEL=msedge-dev 复用已装 Edge,免下载 chromium)
-node serve-test.mjs               # 本地 CORS 测试服务(端口 8931,供浏览器注入实测用)
+# 1. 运行人民币模块单元测试 (node:test 零外部依赖)
+node --test tests/cny-price.test.cjs
+
+# 2. 检查上游词库更新
+node scripts/check-upstream.mjs
+
+# 3. 编译并输出单文件产物
+node build.mjs
+node --check openrouter-chinese-plus.user.js
 ```
 
-目录结构:
+---
 
-```
-openrouter-chinese/
-├── openrouter-chinese-plus.user.js   # 最终安装产物(构建生成,勿手改)
-├── cny-price.module.js               # 人民币价格模块(原创;Node 下导出内部函数供测试)
-├── build.mjs                         # 组装脚本(版本号 = OUR_BASE 常量.构建号,OUR_BASE 是功能版本唯一权威来源)
-├── upstream.config.json              # 上游来源与镜像配置
-├── upstream.state.json               # 同步状态(哈希/版本号/构建号,自动维护)
-├── scripts/check-upstream.mjs        # 上游检查与同步
-├── tests/cny-price.test.cjs          # 人民币模块单元测试(node --test)
-├── .github/workflows/ci.yml          # push/PR:构建 + 语法校验 + 产物一致性 + 单元测试
-├── .github/workflows/upstream-sync.yml  # 每 6 小时定时同步
-├── serve-test.mjs                    # 本地测试服务
-├── sources/                          # 上游脚本快照(vendored,构建的唯一依赖)
-│   ├── datou-locals.js               #   datou1996 词库
-│   └── datou-main.user.js            #   datou1996 翻译引擎
-└── test-models.png                   # 真机实测截图(openrouter.ai/models)
-```
+## 📄 免责声明与开源协议
 
-### 手动发版
+本项目依据 **MIT 许可证** 开源。
 
-修改了本仓库自身功能(价格模块、引擎补丁等)后:编辑 `build.mjs` 顶部的 `OUR_BASE`(如 `1.0` → `1.1`),重跑 `node build.mjs`,提交推送即可。构建号保持全局递增,版本号永远单调上涨。
-
-## 许可证
-
-MIT(见 [LICENSE](./LICENSE))。翻译引擎与词库来自 datou1996/openrouter-chinese(脚本头声明 MIT),版权归原作者;人民币价格模块为原创。LynnGuo666/OpenRouter_Chinese 仅作设计思路参考,未复制其任何代码(其代码为 PolyForm Noncommercial 许可)。
-
-本插件为第三方作品,与 OpenRouter 官方无关。人民币价格仅为按市场汇率的本地换算参考,不代表 OpenRouter 以人民币结算,不含支付手续费与税费。
+*本脚本为第三方开源作品，与 OpenRouter 官方无关。人民币价格仅按市场公开汇率提供本地计算参考，不代表 OpenRouter 官方结算币种，亦不包含银行换汇手续费与跨境税费。*
