@@ -4571,6 +4571,12 @@ const I18N = {
         const span = document.createElement('span');
         span.setAttribute(MARK_ATTR, '');
         span.textContent = ' ' + label;
+        if (span.style) {
+            span.style.opacity = '0.85';
+            span.style.fontSize = '0.92em';
+            span.style.fontWeight = '500';
+            span.style.letterSpacing = '-0.01em';
+        }
         return span;
     }
 
