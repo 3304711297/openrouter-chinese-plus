@@ -184,11 +184,15 @@
         const span = document.createElement('span');
         span.setAttribute(MARK_ATTR, '');
         span.textContent = ' ' + label;
+        if (typeof span.title === 'string') {
+            span.title = '人民币参考价 (1 USD ≈ ' + state.rate.toFixed(2) + ' CNY，来源: ' + state.rateSource + ')';
+        }
         if (span.style) {
             span.style.opacity = '0.85';
             span.style.fontSize = '0.92em';
             span.style.fontWeight = '500';
             span.style.letterSpacing = '-0.01em';
+            span.style.fontFeatureSettings = '"tnum"';
         }
         return span;
     }
@@ -196,6 +200,9 @@
     function refreshMark(markEl, label) {
         const want = ' ' + label;
         if (markEl.textContent !== want) markEl.textContent = want;
+        if (typeof markEl.title === 'string') {
+            markEl.title = '人民币参考价 (1 USD ≈ ' + state.rate.toFixed(2) + ' CNY，来源: ' + state.rateSource + ')';
+        }
     }
 
     function annotateNode(node) {
