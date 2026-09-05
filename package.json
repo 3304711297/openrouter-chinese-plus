@@ -8,7 +8,7 @@
   },
   "scripts": {
     "build": "node build.mjs",
-    "test": "node --test tests/cny-price.test.cjs tests/check-upstream.test.mjs",
+    "test": "node --test tests/cny-price.test.cjs tests/check-upstream.test.mjs tests/build.test.mjs",
     "e2e": "playwright test tests/e2e.spec.mjs"
   },
   "repository": {
