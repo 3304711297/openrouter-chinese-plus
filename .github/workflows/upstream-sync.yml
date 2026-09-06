@@ -60,6 +60,7 @@ jobs:
         run: |
           node build.mjs
           node --check openrouter-chinese-plus.user.js
+          npm test
 
       - name: 提交并推送
         if: steps.diff.outputs.changed == 'true'
