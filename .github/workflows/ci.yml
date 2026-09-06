@@ -23,7 +23,7 @@ jobs:
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 20
+          node-version: 24
 
       - name: 构建产物并校验语法
         run: |
@@ -36,7 +36,7 @@ jobs:
         run: git diff --exit-code -- openrouter-chinese-plus.user.js
 
       - name: 单元测试
-        run: node --test tests/cny-price.test.cjs tests/check-upstream.test.mjs
+        run: npm test
 
   # E2E 冒烟(定位:冒烟,不承担完整功能测试):真实访问 openrouter.ai 以 document-start
   # 语义注入产物,断言关键中文节点与 ≈¥ 参考价出现(不断言具体金额/固定文案);
@@ -49,7 +49,7 @@ jobs:
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 20
+          node-version: 24
 
       - name: 安装依赖
         run: npm ci

@@ -1,6 +1,6 @@
 {
   "name": "openrouter-chinese-plus",
-  "version": "0.0.0",
+  "version": "1.3.2",
   "description": "一个油猴脚本,做两件事:",
   "main": "cny-price.module.js",
   "directories": {
@@ -16,8 +16,11 @@
     "url": "git+https://github.com/3304711297/openrouter-chinese-plus.git"
   },
   "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "author": "3304711297",
+  "license": "MIT",
+  "engines": {
+    "node": ">=24"
+  },
   "type": "commonjs",
   "bugs": {
     "url": "https://github.com/3304711297/openrouter-chinese-plus/issues"
