@@ -6,6 +6,7 @@
 
 <p align="center">
   <a href="https://raw.githubusercontent.com/3304711297/openrouter-chinese-plus/main/openrouter-chinese-plus.user.js"><img src="https://img.shields.io/badge/Install-Userscript-brightgreen?style=flat-square&logo=tampermonkey" alt="Install"></a>
+  <a href="https://github.com/3304711297/openrouter-chinese-plus/releases"><img src="https://img.shields.io/github/v/release/3304711297/openrouter-chinese-plus?label=Release&style=flat-square" alt="Release"></a>
   <a href="https://github.com/3304711297/openrouter-chinese-plus/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/3304711297/openrouter-chinese-plus/ci.yml?branch=main&label=CI%20Build&style=flat-square" alt="CI Status"></a>
   <a href="https://github.com/3304711297/openrouter-chinese-plus/actions/workflows/upstream-sync.yml"><img src="https://img.shields.io/github/actions/workflow/status/3304711297/openrouter-chinese-plus/upstream-sync.yml?branch=main&label=Sync%20Upstream%20(6h)&style=flat-square" alt="Sync Upstream"></a>
   <img src="https://img.shields.io/badge/Target-OpenRouter.ai-6366f1?style=flat-square" alt="Target">
@@ -24,14 +25,18 @@
 
 ---
 
-## 🚀 一键安装
+## 🚀 安装指南（双通道规范）
 
-在已安装 [ScriptCat 脚本猫](https://scriptcat.org/) 或 [Tampermonkey](https://www.tampermonkey.net/) 的浏览器中点击安装：
+在已安装 [ScriptCat 脚本猫](https://scriptcat.org/) 或 [Tampermonkey](https://www.tampermonkey.net/) 的浏览器中选择适合的通道进行安装。本项目建立 **滚动开发通道（Rolling Channel）** 与 **稳定发布通道（Stable Channel）** 双轨规范（新稳定版本基线对齐 `v1.3.3+`）：
 
-| 安装通道 | 链接 | 说明 |
-| :--- | :--- | :--- |
-| ⚡ **GitHub 直连通道** | [一键安装 openrouter-chinese-plus.user.js](https://raw.githubusercontent.com/3304711297/openrouter-chinese-plus/main/openrouter-chinese-plus.user.js) | **推荐**。版本更新秒级生效 |
-| 🌐 **jsDelivr 镜像通道** | [一键安装 (jsDelivr CDN 镜像)](https://cdn.jsdelivr.net/gh/3304711297/openrouter-chinese-plus@main/openrouter-chinese-plus.user.js) | 国内无需代理（约有 12 小时 CDN 缓存） |
+| 安装通道 | 链接 / 途径 | 特性与更新机制 | 推荐场景 |
+| :--- | :--- | :--- | :--- |
+| ⚡ **滚动开发通道**<br>*(Rolling Channel)* | 🔹 [GitHub 直连（秒级更新）](https://raw.githubusercontent.com/3304711297/openrouter-chinese-plus/main/openrouter-chinese-plus.user.js)<br>🔹 [jsDelivr 镜像（国内免代）](https://cdn.jsdelivr.net/gh/3304711297/openrouter-chinese-plus@main/openrouter-chinese-plus.user.js) | **默认跟随 `main` 分支**。<br>上游词库每 6 小时自动同步或新特性合并后秒级生效（CDN 约 12h 缓存）。 | **日常尝鲜推荐**。<br>第一时间体验最新全站中文化翻译与最新特性。 |
+| 🟢 **稳定发布通道**<br>*(Stable Channel)* | 🔹 [🚀 GitHub Releases 永久最新资产直链](https://github.com/3304711297/openrouter-chinese-plus/releases/latest/download/openrouter-chinese-plus.user.js)<br>🔹 [📦 历史与固定 Release Tags](https://github.com/3304711297/openrouter-chinese-plus/releases) | **指向 GitHub Releases 正式发布资产**。<br>新稳定版本基线从 `v1.3.3+` 起步，经自动化测试验证并锁定语义版本，杜绝频繁滚动打扰。 | **长效稳定推荐**。<br>追求高可靠性、或需使用固定 Release Tag 下载的用户。 |
+
+> 💡 **通道差异速查**：
+> - **滚动开发通道（Rolling Channel）**：默认跟随 `main` 分支（推荐日常尝鲜），享受快速迭代与自动词库同步；
+> - **稳定发布通道（Stable Channel）**：指向 [GitHub Releases 永久最新资产直链](https://github.com/3304711297/openrouter-chinese-plus/releases/latest/download/openrouter-chinese-plus.user.js)，或从 [Releases 列表](https://github.com/3304711297/openrouter-chinese-plus/releases) 选择固定 Release Tag 下载，更新策略严谨稳定。
 
 ---
 
@@ -97,8 +102,8 @@
 ## 🛠️ 本地开发与测试
 
 ```bash
-# 1. 运行人民币模块单元测试 (node:test 零外部依赖)
-node --test tests/cny-price.test.cjs
+# 1. 运行完整单元测试 (node:test 零外部依赖)
+npm test
 
 # 2. 检查上游词库更新
 node scripts/check-upstream.mjs

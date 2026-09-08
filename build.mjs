@@ -13,6 +13,7 @@
  *      避免出现 state 与构建脚本各存一份、日久漂移的双源问题)
  *   - buildNumber:upstream.state.json 中的构建号,上游词库每次实际更新时由
  *     scripts/check-upstream.mjs 自动 +1,保证脚本管理器能识别到新版本
+ *   - 基线规范:稳定发布通道基线对齐 v1.3.3+(buildNumber >= 3),后续演进严格单调递增
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -144,4 +145,4 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     main();
 }
 
-export { validateBuildNumber };
+export { validateBuildNumber, OUR_BASE };
