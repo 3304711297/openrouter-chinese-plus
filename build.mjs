@@ -54,7 +54,34 @@ function stripUserscriptHeader(source) {
     return source.slice(idx + endMarker.length).replace(/^\r?\n/, '');
 }
 
-function main() {
+/**
+ * 解析发布通道(纯函数,供单元测试)
+ * @param {string[]} [args=process.argv] 命令行参数
+ * @returns {'stable' | 'rolling'}
+ */
+function resolveChannel(args = process.argv) {
+    if (args.includes('--channel=stable') || (args.includes('--channel') && args[args.indexOf('--channel') + 1] === 'stable')) {
+        return 'stable';
+    }
+    return 'rolling';
+}
+
+/**
+ * 解析目标发布通道的安装/更新地址(纯函数,供单元测试)
+ * - stable: https://github.com/${REPO_OWNER}/${REPO_NAME}/releases/latest/download/openrouter-chinese-plus.user.js
+ * - rolling(默认): https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/main/openrouter-chinese-plus.user.js
+ * @param {string[]} [args=process.argv] 命令行参数
+ * @param {string} [repoOwner=REPO_OWNER]
+ * @param {string} [repoName=REPO_NAME]
+ * @returns {string}
+ */
+function resolveRawUrl(args = process.argv, repoOwner = REPO_OWNER, repoName = REPO_NAME) {
+    return resolveChannel(args) === 'stable'
+        ? `https://github.com/${repoOwner}/${repoName}/releases/latest/download/openrouter-chinese-plus.user.js`
+        : `https://raw.githubusercontent.com/${repoOwner}/${repoName}/main/openrouter-chinese-plus.user.js`;
+}
+
+function main(args = process.argv) {
     const state = JSON.parse(readFileSync(join(root, 'upstream.state.json'), 'utf8'));
     const validated = validateBuildNumber(state);
     if (!validated.ok) {
@@ -68,7 +95,8 @@ function main() {
     const VERSION = `${OUR_BASE}.${BUILD_NUMBER}`;
     const UPSTREAM_DICT_VERSION =
         (state.sources && state.sources.datou1996 && state.sources.datou1996.versions?.dict) || '未知';
-    const RAW_URL = `https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/main/openrouter-chinese-plus.user.js`;
+    const channel = resolveChannel(args);
+    const RAW_URL = resolveRawUrl(args);
 
     const HEADER = `// ==UserScript==
 // @name         OpenRouter 中文化增强版
@@ -134,7 +162,7 @@ function main() {
 
     const outPath = join(root, 'openrouter-chinese-plus.user.js');
     writeFileSync(outPath, output, 'utf8');
-    console.log(`已生成: ${outPath} (${output.length} 字节,版本 ${VERSION},上游词库 v${UPSTREAM_DICT_VERSION})`);
+    console.log(`已生成: ${outPath} (${output.length} 字节,版本 ${VERSION},通道 ${channel},上游词库 v${UPSTREAM_DICT_VERSION})`);
 }
 
 /**
@@ -145,4 +173,4 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     main();
 }
 
-export { validateBuildNumber, OUR_BASE };
+export { validateBuildNumber, resolveRawUrl, resolveChannel, OUR_BASE, REPO_OWNER, REPO_NAME };

@@ -1,0 +1,33 @@
+name: Release
+
+# 打 tag (v*) 时触发: 构建稳定发布通道产物并发布 GitHub Release 资产
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+
+      - name: 构建稳定版产物并校验语法
+        run: |
+          node build.mjs --channel=stable
+          node --check openrouter-chinese-plus.user.js
+
+      - name: 发布 GitHub Release
+        uses: softprops/action-gh-release@c062e08bd532815e2082a85e87e3ef29c3e6d191 # v2.0.8
+        with:
+          files: openrouter-chinese-plus.user.js
+          generate_release_notes: true

@@ -12,7 +12,7 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { validateBuildNumber, OUR_BASE } from '../build.mjs';
+import { validateBuildNumber, resolveRawUrl, resolveChannel, OUR_BASE, REPO_OWNER, REPO_NAME } from '../build.mjs';
 
 describe('validateBuildNumber(build 状态校验——防版本倒退)', () => {
     test('合法 buildNumber 通过并原样返回', () => {
@@ -60,4 +60,42 @@ describe('版本规范与基线对齐(v1.3.3+ 递增)', () => {
         assert.match(pkg.version, /^1\.3\.[3-9]\d*$/, `package.json 版本必须符合 v1.3.3+ 基线规范，当前为: ${pkg.version}`);
     });
 });
+
+describe('通道解析与 RAW_URL 构建(--channel=stable 校验)', () => {
+    test('默认（未传参）解析为 rolling 通道并指向 main 原始文件', () => {
+        assert.strictEqual(resolveChannel([]), 'rolling');
+        assert.strictEqual(
+            resolveRawUrl([]),
+            `https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/main/openrouter-chinese-plus.user.js`
+        );
+    });
+
+    test('--channel=stable 解析为 stable 通道并指向 releases latest 下载地址', () => {
+        const args = ['--channel=stable'];
+        assert.strictEqual(resolveChannel(args), 'stable');
+        assert.strictEqual(
+            resolveRawUrl(args),
+            `https://github.com/${REPO_OWNER}/${REPO_NAME}/releases/latest/download/openrouter-chinese-plus.user.js`
+        );
+    });
+
+    test('--channel stable 形式亦可正确识别为 stable 通道', () => {
+        const args = ['--channel', 'stable'];
+        assert.strictEqual(resolveChannel(args), 'stable');
+        assert.strictEqual(
+            resolveRawUrl(args),
+            `https://github.com/${REPO_OWNER}/${REPO_NAME}/releases/latest/download/openrouter-chinese-plus.user.js`
+        );
+    });
+
+    test('其他未知参数回退为 rolling 通道', () => {
+        const args = ['--channel=beta', '--foo'];
+        assert.strictEqual(resolveChannel(args), 'rolling');
+        assert.strictEqual(
+            resolveRawUrl(args),
+            `https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/main/openrouter-chinese-plus.user.js`
+        );
+    });
+});
+
 
