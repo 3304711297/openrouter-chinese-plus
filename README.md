@@ -115,6 +115,36 @@ node --check openrouter-chinese-plus.user.js
 
 ---
 
+## 📂 项目结构
+
+单文件产物由 `build.mjs` 组装生成，`sources/` 目录保存上游词库的完整快照（vendored）：即使上游项目消失，本项目也能继续构建、发布与维护。
+
+```text
+openrouter-chinese-plus/
+├── openrouter-chinese-plus.user.js  # 构建产物（勿手改，CI 校验其与源一致）
+├── build.mjs                        # 构建器：输出单文件产物，内含 OUR_BASE 版本常量
+├── cny-price.module.js              # 人民币参考价模块（构建器内联，单元测试直接引用）
+├── package.json                     # Scripts：build / test / e2e
+├── playwright.config.mjs            # Playwright E2E 冒烟测试配置
+├── serve-test.mjs                   # 本地测试服务：带 CORS 返回产物，供浏览器注入实测
+├── upstream.config.json             # 上游来源配置（仓库与镜像候选列表）
+├── upstream.state.json              # 上游同步状态：文件哈希与递增构建号 buildNumber
+├── scripts/
+│   └── check-upstream.mjs           # 上游词库检查与同步：哈希比对 → 更新快照 → 递增构建号
+├── sources/                         # 上游快照（vendored）：构建与比对的数据来源
+│   ├── datou-locals.js              # datou1996 词库，构建时内联进产物
+│   ├── datou-main.user.js           # datou1996 引擎主体，构建时去元数据头后内联
+│   ├── isdoge.user.js               # isdoge 版参考快照（评估后未并入）
+│   └── lynnguo.user.js              # LynnGuo666 版参考快照（仅借鉴设计思路）
+└── tests/
+    ├── cny-price.test.cjs           # 人民币模块单元测试
+    ├── check-upstream.test.mjs      # 上游检查纯函数单元测试
+    ├── build.test.mjs               # 构建器状态校验单元测试
+    └── e2e.spec.mjs                 # Playwright E2E 冒烟测试
+```
+
+---
+
 ## 📄 免责声明与开源协议
 
 本项目依据 **MIT 许可证** 开源。
