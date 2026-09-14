@@ -3,16 +3,21 @@
  *
  * 职责:
  *   1. 按 upstream.config.json 逐个尝试上游仓库(含镜像),拉取词库与引擎文件
- *   2. 与 upstream.state.json 中记录的哈希比对,判断是否有更新
- *   3. 有更新 → 覆盖 sources/ 下的本地快照,递增 buildNumber,记录新版本号
- *   4. 上游不可用(删除/断网/改名)→ 记录状态并正常退出,绝不改动本地快照
+ *   2. 校验本地快照文件未被人工改动:实际 sha256 必须等于 state 里 snapshotHashes
+ *      记录值,不符即以退出码 30 报错退出(人工裁剪快照属有意改动,必须显式重录哈希)
+ *   3. 与 upstream.state.json 中记录的哈希比对,判断是否有更新
+ *   4. 有更新 → 覆盖 sources/ 下的本地快照,递增 buildNumber,记录新版本号
+ *   5. 上游不可用(删除/断网/改名)→ 记录状态并正常退出,绝不改动本地快照
  *
  * 设计原则:本仓库的 sources/ 是完整的 vendored 快照,上游消失只影响"能否跟进新词库",
  * 不影响本项目继续构建、发布和维护。工作流因此永远不会因上游挂掉而变红。
  *
  * 退出码:0 = 无需处理(无更新或上游不可用);10 = 快照已更新,需要重新构建;
  *       20 = 本仓库自身状态异常(如 upstream.state.json 缺失/损坏)——绝不能静默,
- *       否则重算会从默认 buildNumber 起步、产物版本号倒退,脚本管理器将不再提示更新。
+ *       否则重算会从默认 buildNumber 起步、产物版本号倒退,脚本管理器将不再提示更新;
+ *       30 = 本地快照与本仓库记录(snapshotHashes)不符——人工改动过 sources/ 却未重录哈希。
+ *       与 20 分开是因为人工处置方式不同(20:从 git 历史恢复 state;30:先判断改动是否有意),
+ *       且必须中止本次同步:继续跑只会让上游更新整文件覆盖掉人工改动而不留痕迹。
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
@@ -32,6 +37,7 @@ const config = JSON.parse(readFileSync(CONFIG_PATH, 'utf8'));
 const EXIT_OK = 0;
 const EXIT_UPDATED = 10;
 const EXIT_UNEXPECTED = 20;
+const EXIT_DRIFT = 30;
 
 /** 标记"本仓库自身状态异常"的错误:必须让工作流变红,不允许当作网络问题静默放过 */
 class UnexpectedError extends Error {
@@ -39,6 +45,20 @@ class UnexpectedError extends Error {
         super(message);
         this.name = 'UnexpectedError';
         this.unexpected = true;
+    }
+}
+
+/**
+ * 标记"本地快照与 snapshotHashes 记录不符"的错误。
+ * 与 UnexpectedError 分开分类:处置方式不同——状态文件损坏是从 git 历史恢复 state,
+ * 而快照漂移要先判断"人工改动是否有意",再决定重录哈希还是恢复文件。
+ */
+class SnapshotDriftError extends Error {
+    constructor(message, mismatches) {
+        super(message);
+        this.name = 'SnapshotDriftError';
+        this.drift = true;
+        this.mismatches = mismatches;
     }
 }
 
@@ -94,6 +114,75 @@ function saveState(state) {
 
 function sha256(text) {
     return createHash('sha256').update(text, 'utf8').digest('hex');
+}
+
+/**
+ * 校验本地快照文件与 state 里 snapshotHashes 记录是否一致(纯函数,供单元测试)。
+ *
+ * 为什么需要这一步:sources/ 是上游快照,但允许人工裁剪(如 2026-09 的词库死重清理)。
+ * 人工改动后必须把新哈希重录进 snapshotHashes,否则 state 不再描述被跟踪的文件,
+ * 漂移对同步机制永久隐形、任何 CI 都不报;而一旦上游真更新,整文件覆盖会静默回填
+ * 被删内容,清理成果无声丢失。这里把它变成显式可检测。
+ *
+ * 语义与 hashes 严格分离:hashes 是"上次拉取的上游内容哈希",只用于更新检测,
+ * 本函数绝不读它;snapshotHashes 是"当前本地快照文件哈希",只用于漂移检测。
+ *
+ * 校验前不写任何文件、不发任何请求;无漂移时行为与原实现完全一致(仅多读一次文件)。
+ * @param {object} state 已通过 parseStateText 校验的状态对象
+ * @param {object} [conf=config] 上游配置(默认上游配置,测试可注入)
+ * @param {(localPath: string) => string} [readUtf8] 文件读取器(默认读仓库内实际文件)
+ * @returns {{ok: true} | {ok: false, reason: string, mismatches: Array<{file: string, expected: string|null, actual: string|null, kind: 'drift'|'unrecorded'|'unreadable'}>}}
+ */
+function verifySnapshotHashes(state, conf = config, readUtf8 = (p) => readFileSync(join(projectRoot, p), 'utf8')) {
+    const mismatches = [];
+
+    for (const source of conf.sources) {
+        const entry = state.sources?.[source.name];
+        // 从未同步过该来源(如首次部署前的 state):无从谈起漂移,交给后续流程处理
+        if (!entry) continue;
+
+        const recorded = entry.snapshotHashes;
+        const recordedOk = recorded && typeof recorded === 'object' && !Array.isArray(recorded);
+
+        for (const f of source.files) {
+            const expected = recordedOk && typeof recorded[f.local] === 'string' ? recorded[f.local] : null;
+
+            let actual;
+            try {
+                actual = sha256(readUtf8(f.local));
+            } catch {
+                // 文件缺失/不可读:优先报这一条,因为它比"内容不符"更根本
+                mismatches.push({ file: f.local, expected, actual: null, kind: 'unreadable' });
+                continue;
+            }
+
+            if (expected === null) {
+                mismatches.push({ file: f.local, expected: null, actual, kind: 'unrecorded' });
+            } else if (actual !== expected) {
+                mismatches.push({ file: f.local, expected, actual, kind: 'drift' });
+            }
+        }
+    }
+
+    if (mismatches.length === 0) return { ok: true };
+
+    const detail = mismatches
+        .map((m) => {
+            if (m.kind === 'unreadable') return `${m.file}: 文件缺失/不可读(记录值 ${m.expected})`;
+            if (m.kind === 'unrecorded') return `${m.file}: state 无 snapshotHashes 记录(实际 ${m.actual})`;
+            return `${m.file}: 记录 ${m.expected} ≠ 实际 ${m.actual}`;
+        })
+        .join('; ');
+
+    return {
+        ok: false,
+        reason:
+            `本地快照与 upstream.state.json 的 snapshotHashes 记录不符: ${detail}。` +
+            'sources/ 的快照被人工改动后,必须把新哈希写入 snapshotHashes 才算显式生效;' +
+            '否则上游下次更新会整文件覆盖、静默回填被删内容。' +
+            '请确认改动是否有意:有意 → 重录 snapshotHashes;无意 → 从 git 恢复文件。',
+        mismatches,
+    };
 }
 
 const UA = 'openrouter-chinese-plus-updater';
@@ -166,6 +255,12 @@ async function main() {
     let anyChanged = false;   // 上游内容有实质更新(需要重新构建)
     let stateDirty = false;   // 状态文件需要落盘(内容有实质变化才写,避免时间戳churn)
 
+    // 先做本地自检:快照漂移(人工改了 sources/ 却没重录哈希)必须在拉取上游之前拦下。
+    // 否则下方"检测到更新"分支会直接用上游原文整文件覆盖快照,把人工改动冲掉且不留痕迹。
+    // 这条校验只读本地文件、不发网络请求,无漂移时对后续流程零影响。
+    const drift = verifySnapshotHashes(state);
+    if (!drift.ok) throw new SnapshotDriftError(drift.reason, drift.mismatches);
+
     for (const source of config.sources) {
         const prev = state.sources[source.name] || {};
         const result = await fetchSource(source);
@@ -219,6 +314,9 @@ async function main() {
                 checkedAt: now,
                 lastChangedAt: now,
                 hashes,
+                // 快照刚由上游原文整文件重写,本地内容 === 上游内容:
+                // 同步重录 snapshotHashes,使下一次自检认为"无漂移"
+                snapshotHashes: hashes,
                 versions,
                 lastError: null,
             };
@@ -239,6 +337,12 @@ async function main() {
  */
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
     main().catch((e) => {
+        if (e && e.drift) {
+            // 本地快照被人工改动却没重录 snapshotHashes:以专用退出码 30 失败。
+            // 必须中止本次同步——继续跑只会让上游更新整文件覆盖掉人工改动,清理成果无声丢失。
+            console.error('[upstream] ✗ 本地快照漂移,需要人工确认:', e.message);
+            process.exit(EXIT_DRIFT);
+        }
         if (e && e.unexpected) {
             // 本仓库自身状态异常(状态文件缺失/损坏等):以非 0/10 退出码失败,
             // 工作流据此变红报警——这类问题静默放过会导致版本号倒退或词库停更无人察觉
@@ -251,4 +355,16 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     });
 }
 
-export { extractDictVersion, extractEngineVersion, sha256, parseStateText, UnexpectedError };
+export {
+    extractDictVersion,
+    extractEngineVersion,
+    sha256,
+    parseStateText,
+    verifySnapshotHashes,
+    UnexpectedError,
+    SnapshotDriftError,
+    EXIT_OK,
+    EXIT_UPDATED,
+    EXIT_UNEXPECTED,
+    EXIT_DRIFT,
+};

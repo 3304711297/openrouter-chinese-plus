@@ -119,6 +119,13 @@ node --check openrouter-chinese-plus.user.js
 
 单文件产物由 `build.mjs` 组装生成，`sources/` 目录保存上游词库的完整快照（vendored）：即使上游项目消失，本项目也能继续构建、发布与维护。
 
+`upstream.state.json` 中的两个哈希字段语义严格分离，不要混用：
+
+- **`hashes`**：**上次拉取的上游内容哈希**。只用于更新检测（本次拉取的上游内容 vs 此值），不描述本地文件。
+- **`snapshotHashes`**：**当前本地快照文件哈希**。只用于漂移检测；`scripts/check-upstream.mjs` 会在拉取上游之前校验 `sources/` 下每个快照文件的实际 sha256 是否等于此记录值。
+
+对 `sources/` 做人工裁剪（如词库死重清理）后，**必须把新哈希重录进 `snapshotHashes`**：否则下次检查会以退出码 `30` 报警，提醒你改动未经显式认可。这是刻意的——否则一旦上游真更新，整文件覆盖会静默回填被删内容，清理成果无声丢失。无漂移时该检查不影响任何既有行为（正常检查仍以 `0`/`10` 退出）。
+
 ```text
 openrouter-chinese-plus/
 ├── openrouter-chinese-plus.user.js  # 构建产物（勿手改，CI 校验其与源一致）
@@ -128,9 +135,9 @@ openrouter-chinese-plus/
 ├── playwright.config.mjs            # Playwright E2E 冒烟测试配置
 ├── serve-test.mjs                   # 本地测试服务：带 CORS 返回产物，供浏览器注入实测
 ├── upstream.config.json             # 上游来源配置（仓库与镜像候选列表）
-├── upstream.state.json              # 上游同步状态：文件哈希与递增构建号 buildNumber
+├── upstream.state.json              # 上游同步状态：上游内容哈希 hashes、本地快照哈希 snapshotHashes、递增构建号 buildNumber
 ├── scripts/
-│   └── check-upstream.mjs           # 上游词库检查与同步：哈希比对 → 更新快照 → 递增构建号
+│   └── check-upstream.mjs           # 上游词库检查与同步：快照漂移自检 → 哈希比对 → 更新快照 → 递增构建号
 ├── sources/                         # 上游快照（vendored）：构建与比对的数据来源
 │   ├── datou-locals.js              # datou1996 词库，构建时内联进产物
 │   ├── datou-main.user.js           # datou1996 引擎主体，构建时去元数据头后内联
