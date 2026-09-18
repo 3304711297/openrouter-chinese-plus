@@ -19,15 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
----
-
-Third-party components:
-
-- Translation engine and dictionary: derived from datou1996/openrouter-chinese
-  (https://github.com/datou1996/openrouter-chinese), whose script header declares
-  the MIT License. Copyright of the upstream dictionary belongs to its author.
-- The CNY price module is an original implementation; the feature design was
-  inspired by LynnGuo666/OpenRouter_Chinese
-  (https://github.com/LynnGuo666/OpenRouter_Chinese, PolyForm Noncommercial 1.0.0)
-  without copying any of its code.
