@@ -2,7 +2,7 @@
 // @name         OpenRouter 中文化增强版
 // @namespace    openrouter-chinese-plus
 // @description  中文化 OpenRouter 全站界面,并为模型价格追加人民币参考价。翻译引擎与词库基于 datou1996/openrouter-chinese (MIT);人民币价格为原创实现,设计思路参考 LynnGuo666/OpenRouter_Chinese
-// @version      1.3.3
+// @version      1.4.3
 // @author       openrouter-chinese-plus
 // @license      MIT
 // @icon         https://openrouter.ai/favicon.ico

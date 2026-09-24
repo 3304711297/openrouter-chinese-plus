@@ -47,17 +47,17 @@ describe('validateBuildNumber(build 状态校验——防版本倒退)', () => {
     });
 });
 
-describe('版本规范与基线对齐(v1.3.3+ 递增)', () => {
-    test('OUR_BASE 与 upstream.state.json 组装版本不低于 1.3.3', () => {
+describe('版本规范与基线对齐(v1.4.3+ 递增)', () => {
+    test('OUR_BASE 与 upstream.state.json 组装版本不低于 1.4.3', () => {
         const state = JSON.parse(readFileSync(new URL('../upstream.state.json', import.meta.url), 'utf8'));
         const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
 
-        assert.strictEqual(OUR_BASE, '1.3');
+        assert.strictEqual(OUR_BASE, '1.4');
         assert.ok(state.buildNumber >= 3, `upstream.state.json buildNumber 必须 >= 3，当前为: ${state.buildNumber}`);
 
         const currentVersion = `${OUR_BASE}.${state.buildNumber}`;
-        assert.match(currentVersion, /^1\.3\.[3-9]\d*$/, `产物构建版本必须符合 v1.3.3+ 基线递增规范，当前为: ${currentVersion}`);
-        assert.match(pkg.version, /^1\.3\.[3-9]\d*$/, `package.json 版本必须符合 v1.3.3+ 基线规范，当前为: ${pkg.version}`);
+        assert.match(currentVersion, /^1\.4\.[3-9]\d*$/, `产物构建版本必须符合 v1.4.3+ 基线递增规范，当前为: ${currentVersion}`);
+        assert.match(pkg.version, /^1\.4\.[3-9]\d*$/, `package.json 版本必须符合 v1.4.3+ 基线规范，当前为: ${pkg.version}`);
     });
 });
 
