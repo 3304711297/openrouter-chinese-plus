@@ -4412,6 +4412,15 @@ const I18N = {
     // 绝不按"长得像 ≈¥数字"全页匹配,避免误删页面原生同形文本
     const MARK_ATTR = 'data-openrouter-cny';
 
+    // 情形二(拆分价格)标记的锚点跟踪:
+    // 拆分标记追加在父元素末尾,其直接前驱可能是价格后的单位文本("/M input"),
+    // prune 时不能按"前驱是价格文本"判定,否则每轮重扫都会误删再重建。
+    // 改用 WeakMap 记录"金额文本节点 -> 拆分标记"与"拆分标记 -> 金额文本节点",
+    // 裁决依据改为"金额节点与其前面的 $ 节点是否仍健在且仍在同一父元素下"。
+    // WeakMap 随 DOM 节点回收,不产生跨页面生命周期的残留。
+    const splitMarkByAmount = new WeakMap(); // 金额文本节点 -> 拆分标记(刷新查找用)
+    const splitAnchorOfMark = new WeakMap(); // 拆分标记 -> 金额文本节点(失锚裁决用)
+
     // 不启用价格增强的页面(对话与生成结果属于用户内容区)
     const DISABLED_PATH_PREFIXES = ['/chat', '/fusion'];
 
@@ -4567,10 +4576,17 @@ const I18N = {
         return isElementMark(node.nextSibling);
     }
 
-    function createMark(label) {
+    function createMark(label, anchorNode) {
         const span = document.createElement('span');
         span.setAttribute(MARK_ATTR, '');
         span.textContent = ' ' + label;
+        // 情形二的拆分标记登记锚点:刷新时按金额节点精确查找,
+        // 绝不能按 parent.lastChild 找——同一父元素里可能还有情形一的
+        // 链式标记,误刷新会把别人的参考价改成当前拆分价格的值
+        if (anchorNode) {
+            splitMarkByAmount.set(anchorNode, span);
+            splitAnchorOfMark.set(span, anchorNode);
+        }
         if (typeof span.title === 'string') {
             span.title = '人民币参考价 (1 USD ≈ ' + state.rate.toFixed(2) + ' CNY，来源: ' + state.rateSource + ')';
         }
@@ -4617,12 +4633,16 @@ const I18N = {
                 const label = formatCny(numUsd);
                 if (!label) return;
 
-                if (isElementMark(parent.lastChild)) {
-                    // 已标注:价格数字被 React 更新时同步刷新参考价
-                    refreshMark(parent.lastChild, label);
+                // 按金额节点精确查找本情形已存在的标记并原地刷新。
+                // 绝不能按 parent.lastChild 找:同一父元素里可能还有情形一的
+                // 链式标记,误命中会把别人的参考价改成当前拆分价格的值。
+                const existing = splitMarkByAmount.get(numNode);
+                if (existing && isElementMark(existing) && existing.parentNode === parent
+                    && splitAnchorOfMark.get(existing) === numNode) {
+                    refreshMark(existing, label);
                     return;
                 }
-                parent.appendChild(createMark(label));
+                parent.appendChild(createMark(label, numNode));
             }
         }
     }
@@ -4712,8 +4732,30 @@ const I18N = {
      * 标记(多价格标注);链条头失锚被移除后,后续标记的前驱自动还原为价格
      * 文本或同样失锚,逐次扫描自愈。失锚标记移除后,扫描会在正确位置重新标注。
      */
+    /**
+     * 拆分标记的锚点是否仍健在:金额节点与其前面的 "$" 节点都还在,
+     * 且仍在同一父元素下。React 替换金额节点后旧锚点即失锚,
+     * 标记被移除,下一次扫描会用新节点重新标注(不产生双份)。
+     */
+    function splitAnchorAlive(mark) {
+        const amountNode = splitAnchorOfMark.get(mark);
+        if (!amountNode || amountNode.nodeType !== Node.TEXT_NODE) return false;
+        if (typeof amountNode.data !== 'string' || amountNode.data.length > 300) return false;
+        if (!/^\s?[\d,]+(?:\.\d+)?/.test(amountNode.data)) return false;
+        const dollarNode = amountNode.previousSibling;
+        if (!dollarNode || dollarNode.nodeType !== Node.TEXT_NODE) return false;
+        if (!/^\s?\$\s?$/.test(dollarNode.data)) return false;
+        return mark.parentNode != null && amountNode.parentNode === mark.parentNode;
+    }
+
     function pruneOrphanMarks() {
         document.querySelectorAll('[' + MARK_ATTR + ']').forEach((el) => {
+            // 情形二的拆分标记:按登记的锚点裁决,不看直接前驱
+            // (其前驱可能是价格后的单位文本,按旧规则每轮都会被误删)
+            if (splitAnchorOfMark.has(el)) {
+                if (!splitAnchorAlive(el)) el.remove();
+                return;
+            }
             const prev = el.previousSibling;
             let anchored = false;
             if (prev && prev.nodeType === Node.TEXT_NODE
