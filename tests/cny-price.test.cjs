@@ -220,6 +220,13 @@ function makeFakeDom() {
                 return this.parent._children[i + 1] || null;
             },
         });
+        Object.defineProperty(node, 'previousSibling', {
+            get() {
+                if (!this.parent) return null;
+                const i = this.parent._children.indexOf(this);
+                return i > 0 ? this.parent._children[i - 1] : null;
+            },
+        });
         Object.defineProperty(node, 'parentElement', {
             get() { return this.parent && this.parent.nodeType === 1 ? this.parent : null; },
         });
@@ -519,5 +526,95 @@ describe('pruneOrphanMarks(孤儿标记回收)', () => {
         mod.rescanAll();
         assert.strictEqual(p._children.length, 3);
         assert.strictEqual(p._children[2].textContent, ' ≈¥0.36');
+    });
+});
+
+describe('情形二拆分标记的锚点跟踪(WeakMap)', () => {
+    /**
+     * 回归:pruneOrphanMarks 曾按"直接前驱是价格文本"裁决,
+     * 拆分标记追加在父元素末尾、前驱是单位文本("/M input")时,
+     * 每轮重扫都被误删再重建(DOM 抖动);且 annotate 曾按 parent.lastChild
+     * 找标记刷新,会误改同一父元素里情形一的链式标记。
+     */
+    function setup() {
+        const dom = makeFakeDom();
+        const mod = freshLoad({ dom });
+        mod.applyRate(7.2, '测试');
+        return { dom, mod };
+    }
+
+    function splitPriceParent(dom) {
+        const p = dom.document.createElement('p');
+        p.appendChild(dom.document.createTextNode('$'));
+        p.appendChild(dom.document.createTextNode('0.044'));
+        p.appendChild(dom.document.createTextNode('/M input tokens'));
+        dom.body.appendChild(p);
+        return p;
+    }
+
+    test('重扫后拆分标记被原地复用,不删查重建', () => {
+        const { dom, mod } = setup();
+        const p = splitPriceParent(dom);
+        mod.rescanAll();
+        const before = dom.document.querySelectorAll(`[${mod.MARK_ATTR}]`);
+        assert.strictEqual(before.length, 1);
+        assert.strictEqual(p._children.length, 4); // [$, 0.044, /M input tokens, mark]
+
+        mod.rescanAll(); // 模拟 6 秒后的周期重扫
+        const after = dom.document.querySelectorAll(`[${mod.MARK_ATTR}]`);
+        assert.strictEqual(after.length, 1);
+        assert.strictEqual(after[0], before[0], '标记应是同一个节点(原地复用)');
+        assert.strictEqual(p._children.length, 4);
+    });
+
+    test('React 原地更新金额数字时,拆分标记刷新而非重建', () => {
+        const { dom, mod } = setup();
+        const p = splitPriceParent(dom);
+        mod.rescanAll();
+        const before = dom.document.querySelectorAll(`[${mod.MARK_ATTR}]`)[0];
+        assert.strictEqual(before.textContent, ' ≈¥0.317');
+
+        p._children[1].data = '0.05'; // React characterData 原地更新
+        mod.rescanAll();
+        const after = dom.document.querySelectorAll(`[${mod.MARK_ATTR}]`)[0];
+        assert.strictEqual(after, before, '标记应是同一个节点');
+        assert.strictEqual(after.textContent, ' ≈¥0.36');
+    });
+
+    test('混合父元素:情形二刷新不误改情形一的链式标记', () => {
+        const { dom, mod } = setup();
+        const p = dom.document.createElement('p');
+        p.appendChild(dom.document.createTextNode('$3'));
+        p.appendChild(dom.document.createTextNode(' | '));
+        p.appendChild(dom.document.createTextNode('$'));
+        p.appendChild(dom.document.createTextNode('0.044'));
+        p.appendChild(dom.document.createTextNode('/M'));
+        dom.body.appendChild(p);
+        mod.rescanAll();
+
+        const marks = dom.document.querySelectorAll(`[${mod.MARK_ATTR}]`);
+        assert.strictEqual(marks.length, 2);
+        // 情形一标记紧随 $3 文本节点之后,值必须仍是 $3 的参考价
+        assert.strictEqual(marks[0].textContent, ' ≈¥21.60');
+        assert.strictEqual(marks[1].textContent, ' ≈¥0.317');
+
+        // 再扫一轮:情形二不得把情形一标记刷新成自己的值
+        mod.rescanAll();
+        const again = dom.document.querySelectorAll(`[${mod.MARK_ATTR}]`);
+        assert.strictEqual(again.length, 2);
+        assert.strictEqual(again[0].textContent, ' ≈¥21.60');
+        assert.strictEqual(again[1].textContent, ' ≈¥0.317');
+    });
+
+    test('金额节点被移除后,拆分标记回收且扫描不产生双份', () => {
+        const { dom, mod } = setup();
+        const p = splitPriceParent(dom);
+        mod.rescanAll();
+        assert.strictEqual(dom.document.querySelectorAll(`[${mod.MARK_ATTR}]`).length, 1);
+
+        p._children[1].remove(); // React 移除金额节点
+        mod.rescanAll();
+        mod.rescanAll();
+        assert.strictEqual(dom.document.querySelectorAll(`[${mod.MARK_ATTR}]`).length, 0);
     });
 });
