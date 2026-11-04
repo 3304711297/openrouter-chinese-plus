@@ -25,7 +25,7 @@ const read = (name) => readFileSync(join(root, name), 'utf8');
 /* ====== 发布配置 ====== */
 const REPO_OWNER = '3304711297';
 const REPO_NAME = 'openrouter-chinese-plus';
-const OUR_BASE = '1.4'; // 我们自己的功能版本号,有功能性改动时手动递增(本次:词库死重清理与工程加固)
+const OUR_BASE = '1.5'; // 我们自己的功能版本号,有功能性改动时手动递增(本次:拆分价格人民币标记误删与参考价误改修复)
 
 /**
  * 校验状态文件中的 buildNumber(纯函数,供单元测试)。
